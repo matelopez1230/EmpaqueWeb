@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4" style="color: #2c3e50;">
+        <i class="fas fa-trash-alt mr-2"></i>Quitar Producto de Pallet
+    </h2>
+
+    <div class="card card-custom">
+        <div class="card-header bg-warning-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-search mr-2"></i>Buscar Producto</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="buscar-empaque">Número de Empaque:</label>
+                        <input type="text" id="buscar-empaque" class="form-control input-custom" placeholder="Ej: EMP-20260416-001">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label>&nbsp;</label>
+                        <button id="btn-buscar" class="btn btn-primary-custom btn-block">
+                            <i class="fas fa-search mr-1"></i>Buscar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card card-custom mt-3">
+        <div class="card-header bg-info-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-list mr-2"></i>Productos Asignados a Pallets</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-custom" id="tabla-productos">
+                    <thead>
+                        <tr>
+                            <th>N° Empaque</th>
+                            <th>Pallet</th>
+                            <th>Usuario Asignado</th>
+                            <th>Código</th>
+                            <th>Descripción</th>
+                            <th>Asignado</th>
+                            <th>Pickeado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-productos">
+                        <tr>
+                            <td colspan="8" class="text-center">
+                                Ingrese un número de empaque para buscar
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para confirmar eliminación -->
+<div class="modal fade" id="modalConfirmar" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle mr-2"></i>Confirmar Eliminación</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning" id="modal-info"></div>
+                <div class="form-group">
+                    <label for="motivo">Motivo:</label>
+                    <textarea id="motivo" class="form-control" rows="2" placeholder="Ingrese el motivo..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="accion-select">Acción:</label>
+                    <select id="accion-select" class="form-control">
+                        <option value="eliminar">Eliminar completamente del pallet</option>
+                        <option value="reducir">Reducir cantidad</option>
+                    </select>
+                </div>
+                <div class="form-group" id="cantidad-container" style="display: none;">
+                    <label for="cantidad-reducir">Cantidad a quitar:</label>
+                    <input type="number" id="cantidad-reducir" class="form-control" step="0.01" min="0.01">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btn-confirmar">
+                    <i class="fas fa-trash mr-1"></i>Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof $ === 'undefined') {
+        console.error('jQuery no está cargado');
+        return;
+    }
+    
+    console.log('Quitar Producto de Pallet iniciado');
+    
+    var productoSeleccionado = null;
+    
+    // Mostrar/ocultar campo de cantidad según acción
+    $('#accion-select').on('change', function() {
+        if ($(this).val() === 'reducir') {
+            $('#cantidad-container').show();
+        } else {
+            $('#cantidad-container').hide();
+        }
+    });
+    
+    // Buscar productos
+    $('#btn-buscar').on('click', function() {
+        var empaque = $('#buscar-empaque').val().trim();
+        if (!empaque) {
+            alert('Ingrese un número de empaque');
+            return;
+        }
+        
+        console.log('Buscando empaque:', empaque);
+        
+        $('#lista-productos').html('<tr><td colspan="8" class="text-center"><i class="fas fa-spinner fa-spin"></i> Buscando...</td></tr>');
+        
+        $.get('/quitar-producto-pallet/buscar', { empaque: empaque })
+            .done(function(data) {
+                console.log('Productos encontrados:', data);
+                var tbody = $('#lista-productos');
+                tbody.empty();
+                
+                if (!data || data.length === 0) {
+                    tbody.append('<tr><td colspan="8" class="text-center">No se encontraron productos para este empaque</td></td>');
+                    return;
+                }
+                
+                data.forEach(function(prod) {
+                    var badgeClass = prod.cantidad_pickeada > 0 ? 'bg-danger' : 'bg-secondary';
+                    tbody.append(`
+                        <tr>
+                            <td><strong>${prod.numero_empaque}</strong></td>
+                            <td>Pallet N° ${prod.numero_pallet}</td>
+                            <td>${prod.usuario_asignado}</td>
+                            <td>${prod.codart}</td>
+                            <td>${prod.descripcion.substring(0, 50)}...</td>
+                            <td class="text-right">${prod.cantidad_asignada}</td>
+                            <td class="text-right"><span class="badge ${badgeClass} text-white">${prod.cantidad_pickeada}</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-warning-custom btn-quitar" data-id="${prod.id_pallet_detalle}" data-codart="${prod.codart}" data-asignado="${prod.cantidad_asignada}" data-pickeado="${prod.cantidad_pickeada}" data-pallet="${prod.numero_pallet}">
+                                    <i class="fas fa-trash-alt mr-1"></i>Quitar
+                                </button>
+                            </td>
+                        </tr>
+                    `);
+                });
+            })
+            .fail(function(xhr) {
+                console.error('Error:', xhr.status);
+                $('#lista-productos').html('<tr><td colspan="8" class="text-center text-danger">Error al buscar</td></tr>');
+            });
+    });
+    
+    // Evento: quitar producto
+    $(document).on('click', '.btn-quitar', function() {
+        productoSeleccionado = {
+            id: $(this).data('id'),
+            codart: $(this).data('codart'),
+            asignado: $(this).data('asignado'),
+            pickeado: $(this).data('pickeado'),
+            pallet: $(this).data('pallet')
+        };
+        
+        var mensaje = `
+            <strong>Producto:</strong> ${productoSeleccionado.codart}<br>
+            <strong>Pallet:</strong> ${productoSeleccionado.pallet}<br>
+            <strong>Cantidad asignada:</strong> ${productoSeleccionado.asignado}<br>
+            <strong>Cantidad pickeada:</strong> ${productoSeleccionado.pickeado}
+        `;
+        
+        if (productoSeleccionado.pickeado > 0) {
+            mensaje += `<br><br><span class="text-danger">¡ATENCIÓN! Este producto tiene ${productoSeleccionado.pickeado} unidades pickeadas. Si lo elimina, también se deshará el pickeo.</span>`;
+        }
+        
+        $('#modal-info').html(mensaje);
+        $('#motivo').val('');
+        $('#cantidad-reducir').val(productoSeleccionado.asignado);
+        $('#accion-select').val('eliminar');
+        $('#cantidad-container').hide();
+        $('#modalConfirmar').modal('show');
+    });
+    
+    // Confirmar acción
+    $('#btn-confirmar').on('click', function() {
+        var accion = $('#accion-select').val();
+        var motivo = $('#motivo').val();
+        var btn = $(this);
+        
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i>Procesando...');
+        
+        if (accion === 'eliminar') {
+            $.ajax({
+                url: '/quitar-producto-pallet/eliminar',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    id_pallet_detalle: productoSeleccionado.id,
+                    motivo: motivo
+                }),
+                success: function(data) {
+                    if (data.success) {
+                        alert(data.mensaje);
+                        $('#modalConfirmar').modal('hide');
+                        $('#btn-buscar').click();
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                },
+                error: function() {
+                    alert('Error de comunicación');
+                },
+                complete: function() {
+                    btn.prop('disabled', false).html('<i class="fas fa-trash mr-1"></i>Confirmar');
+                }
+            });
+        } else {
+            var cantidad = parseFloat($('#cantidad-reducir').val());
+            if (!cantidad || cantidad <= 0) {
+                alert('Ingrese una cantidad válida');
+                btn.prop('disabled', false).html('<i class="fas fa-trash mr-1"></i>Confirmar');
+                return;
+            }
+            
+            if (cantidad > productoSeleccionado.asignado - productoSeleccionado.pickeado) {
+                alert(`No se puede quitar ${cantidad} porque solo quedan ${productoSeleccionado.asignado - productoSeleccionado.pickeado} unidades sin pickear`);
+                btn.prop('disabled', false).html('<i class="fas fa-trash mr-1"></i>Confirmar');
+                return;
+            }
+            
+            $.ajax({
+                url: '/quitar-producto-pallet/reducir',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    id_pallet_detalle: productoSeleccionado.id,
+                    cantidad: cantidad,
+                    motivo: motivo
+                }),
+                success: function(data) {
+                    if (data.success) {
+                        alert(data.mensaje);
+                        $('#modalConfirmar').modal('hide');
+                        $('#btn-buscar').click();
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                },
+                error: function() {
+                    alert('Error de comunicación');
+                },
+                complete: function() {
+                    btn.prop('disabled', false).html('<i class="fas fa-trash mr-1"></i>Confirmar');
+                }
+            });
+        }
+    });
+});
+</script>
+{% endblock %}

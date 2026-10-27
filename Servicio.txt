@@ -1,0 +1,8 @@
+///Servicio
+nssm stop EmpaqueWeb
+taskkill /F /IM python.exe
+nssm start EmpaqueWeb
+
+nssm edit EmpaqueWeb
+
+nssm restart EmpaqueWeb

@@ -1,0 +1,460 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4" style="color: #2c3e50;">
+        <i class="fas fa-users mr-2"></i>Gestión de Usuarios
+    </h2>
+
+    <div class="card card-custom">
+        <div class="card-header bg-primary-custom text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-list mr-2"></i>Usuarios</h5>
+            <button id="btn-nuevo" class="btn btn-light btn-sm">
+                <i class="fas fa-plus mr-1"></i>Nuevo Usuario
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-custom" id="tabla-usuarios">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Usuario</th>
+                            <th>Activo</th>
+                            <th>Fecha Alta</th>
+                            <th>Acciones</th>
+                         </thead>
+                    <tbody id="lista-usuarios">
+                        <tr>
+                            <td colspan="5" class="text-center">
+                                <i class="fas fa-spinner fa-spin"></i> Cargando usuarios...
+                             ‐
+                         ‐
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nuevo/Editar Usuario -->
+<div class="modal fade" id="modalUsuario" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary-custom text-white">
+                <h5 class="modal-title" id="modalUsuarioTitle"><i class="fas fa-user mr-2"></i>Nuevo Usuario</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="usuario-id">
+                <div class="form-group">
+                    <label for="usuario-nombre">Nombre de Usuario:</label>
+                    <input type="text" id="usuario-nombre" class="form-control input-custom" placeholder="Ingrese nombre">
+                </div>
+                <div class="form-group" id="password-group">
+                    <label for="usuario-password">Contraseña:</label>
+                    <input type="password" id="usuario-password" class="form-control input-custom" placeholder="Mínimo 4 caracteres">
+                </div>
+                <div class="form-group">
+                    <div class="custom-control custom-switch">
+                        <input type="checkbox" class="custom-control-input" id="usuario-activo" checked>
+                        <label class="custom-control-label" for="usuario-activo">Usuario Activo</label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success-custom" id="btn-guardar-usuario">
+                    <i class="fas fa-save mr-1"></i>Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Cambiar Contraseña -->
+<div class="modal fade" id="modalPassword" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning-custom text-white">
+                <h5 class="modal-title"><i class="fas fa-key mr-2"></i>Cambiar Contraseña</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="password-usuario-id">
+                <div class="form-group">
+                    <label for="password-nueva">Nueva Contraseña:</label>
+                    <input type="password" id="password-nueva" class="form-control input-custom" placeholder="Mínimo 4 caracteres">
+                </div>
+                <div class="form-group">
+                    <label for="password-confirm">Confirmar Contraseña:</label>
+                    <input type="password" id="password-confirm" class="form-control input-custom" placeholder="Repita la contraseña">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning-custom" id="btn-guardar-password">
+                    <i class="fas fa-save mr-1"></i>Cambiar Contraseña
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Asignar Menús -->
+<div class="modal fade" id="modalMenus" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info-custom text-white">
+                <h5 class="modal-title"><i class="fas fa-bars mr-2"></i>Asignar Menús</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="menus-usuario-id">
+                <p><strong>Usuario:</strong> <span id="menus-usuario-nombre"></span></p>
+                <hr>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Menús Disponibles</h6>
+                        <div id="menus-disponibles" class="list-group" style="max-height: 300px; overflow-y: auto;">
+                            <div class="list-group-item text-center">Cargando...</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Menús Asignados</h6>
+                        <div id="menus-asignados" class="list-group" style="max-height: 300px; overflow-y: auto;">
+                            <div class="list-group-item text-center">Cargando...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    var modoEdicion = false;
+    var usuarioActualId = null;
+    
+    // Cargar lista de usuarios
+    function cargarUsuarios() {
+        $('#lista-usuarios').html('<tr><td colspan="5" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>');
+        
+        $.get('/usuarios/listar')
+            .done(function(data) {
+                var tbody = $('#lista-usuarios');
+                tbody.empty();
+                
+                if (!data || data.length === 0) {
+                    tbody.append('<tr><td colspan="5" class="text-center">No hay usuarios registrados</td></tr>');
+                    return;
+                }
+                
+                data.forEach(function(user) {
+                    var activoBadge = user.activo ? '<span class="badge badge-success">Activo</span>' : '<span class="badge badge-secondary">Inactivo</span>';
+                    tbody.append(`
+                        <tr>
+                            <td>${user.id}</td>
+                            <td><strong>${user.nombre}</strong></td>
+                            <td>${activoBadge}</td>
+                            <td>${user.fecha_alta}</td>
+                            <td>
+                                <button class="btn btn-sm btn-info-custom btn-menus" data-id="${user.id}" data-nombre="${user.nombre}" title="Asignar Menús">
+                                    <i class="fas fa-bars"></i>
+                                </button>
+                                <button class="btn btn-sm btn-warning-custom btn-password" data-id="${user.id}" title="Cambiar Contraseña">
+                                    <i class="fas fa-key"></i>
+                                </button>
+                                <button class="btn btn-sm btn-primary-custom btn-editar" data-id="${user.id}" data-nombre="${user.nombre}" data-activo="${user.activo}">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-danger-custom btn-eliminar" data-id="${user.id}" data-nombre="${user.nombre}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `);
+                });
+            })
+            .fail(function() {
+                $('#lista-usuarios').html('<tr><td colspan="5" class="text-center text-danger">Error al cargar usuarios</td></tr>');
+            });
+    }
+    
+    // Cargar menús del usuario
+    function cargarMenus(usuarioId, usuarioNombre) {
+        $('#menus-usuario-id').val(usuarioId);
+        $('#menus-usuario-nombre').text(usuarioNombre);
+        
+        $('#menus-disponibles').html('<div class="list-group-item text-center">Cargando...</div>');
+        $('#menus-asignados').html('<div class="list-group-item text-center">Cargando...</div>');
+        
+        $.get(`/usuarios/detalle/${usuarioId}`)
+            .done(function(data) {
+                // Menús asignados
+                var asignadosHtml = '';
+                if (data.menus_asignados.length === 0) {
+                    asignadosHtml = '<div class="list-group-item text-muted">Sin menús asignados</div>';
+                } else {
+                    data.menus_asignados.forEach(function(menu) {
+                        asignadosHtml += `
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <span><i class="${menu.icono || 'fas fa-circle'} mr-2"></i>${menu.nombre}</span>
+                                <button class="btn btn-sm btn-danger btn-quitar-menu" data-menu-id="${menu.id}" data-menu-nombre="${menu.nombre}">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        `;
+                    });
+                }
+                
+                // Menús disponibles
+                var disponiblesHtml = '';
+                if (data.menus_disponibles.length === 0) {
+                    disponiblesHtml = '<div class="list-group-item text-muted">No hay menús disponibles</div>';
+                } else {
+                    data.menus_disponibles.forEach(function(menu) {
+                        var yaAsignado = data.menus_asignados.some(m => m.id === menu.id);
+                        if (!yaAsignado) {
+                            disponiblesHtml += `
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span><i class="${menu.icono || 'fas fa-circle'} mr-2"></i>${menu.nombre}</span>
+                                    <button class="btn btn-sm btn-success btn-asignar-menu" data-menu-id="${menu.id}" data-menu-nombre="${menu.nombre}">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                            `;
+                        }
+                    });
+                }
+                
+                $('#menus-disponibles').html(disponiblesHtml || '<div class="list-group-item text-muted">No hay menús disponibles</div>');
+                $('#menus-asignados').html(asignadosHtml);
+                $('#modalMenus').modal('show');
+            })
+            .fail(function() {
+                alert('Error al cargar menús del usuario');
+            });
+    }
+    
+    // Asignar menú
+    function asignarMenu(usuarioId, menuId, menuNombre) {
+        $.ajax({
+            url: '/usuarios/asignar-menu',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ id_usuario: usuarioId, id_menu: menuId }),
+            success: function(data) {
+                if (data.success) {
+                    alert(`Menú "${menuNombre}" asignado exitosamente`);
+                    cargarMenus(usuarioId, $('#menus-usuario-nombre').text());
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            },
+            error: function() {
+                alert('Error de comunicación');
+            }
+        });
+    }
+    
+    // Quitar menú
+    function quitarMenu(usuarioId, menuId, menuNombre) {
+        if (!confirm(`¿Quitar el menú "${menuNombre}" de este usuario?`)) return;
+        
+        $.ajax({
+            url: '/usuarios/quitar-menu',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ id_usuario: usuarioId, id_menu: menuId }),
+            success: function(data) {
+                if (data.success) {
+                    alert(`Menú "${menuNombre}" removido exitosamente`);
+                    cargarMenus(usuarioId, $('#menus-usuario-nombre').text());
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            },
+            error: function() {
+                alert('Error de comunicación');
+            }
+        });
+    }
+    
+    // Evento: Nuevo usuario
+    $('#btn-nuevo').on('click', function() {
+        modoEdicion = false;
+        $('#modalUsuarioTitle').html('<i class="fas fa-user-plus mr-2"></i>Nuevo Usuario');
+        $('#usuario-id').val('');
+        $('#usuario-nombre').val('');
+        $('#usuario-password').val('');
+        $('#usuario-activo').prop('checked', true);
+        $('#password-group').show();
+        $('#modalUsuario').modal('show');
+    });
+    
+    // Evento: Editar usuario
+    $(document).on('click', '.btn-editar', function() {
+        modoEdicion = true;
+        var id = $(this).data('id');
+        var nombre = $(this).data('nombre');
+        var activo = $(this).data('activo') === 1 || $(this).data('activo') === true;
+        
+        $('#modalUsuarioTitle').html('<i class="fas fa-user-edit mr-2"></i>Editar Usuario');
+        $('#usuario-id').val(id);
+        $('#usuario-nombre').val(nombre);
+        $('#usuario-activo').prop('checked', activo);
+        $('#password-group').hide();
+        $('#modalUsuario').modal('show');
+    });
+    
+    // Evento: Guardar usuario
+    $('#btn-guardar-usuario').on('click', function() {
+        var id = $('#usuario-id').val();
+        var nombre = $('#usuario-nombre').val().trim();
+        var password = $('#usuario-password').val();
+        var activo = $('#usuario-activo').is(':checked');
+        
+        if (!nombre) {
+            alert('Ingrese un nombre de usuario');
+            return;
+        }
+        
+        var url = modoEdicion ? `/usuarios/editar/${id}` : '/usuarios/crear';
+        var data = modoEdicion ? { nombre: nombre, activo: activo } : { nombre: nombre, password: password, activo: activo };
+        
+        if (!modoEdicion && !password) {
+            alert('Ingrese una contraseña');
+            return;
+        }
+        
+        if (!modoEdicion && password.length < 4) {
+            alert('La contraseña debe tener al menos 4 caracteres');
+            return;
+        }
+        
+        $.ajax({
+            url: url,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function(data) {
+                if (data.success) {
+                    alert(data.mensaje);
+                    $('#modalUsuario').modal('hide');
+                    cargarUsuarios();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            },
+            error: function() {
+                alert('Error de comunicación');
+            }
+        });
+    });
+    
+    // Evento: Cambiar contraseña
+    $(document).on('click', '.btn-password', function() {
+        var id = $(this).data('id');
+        $('#password-usuario-id').val(id);
+        $('#password-nueva').val('');
+        $('#password-confirm').val('');
+        $('#modalPassword').modal('show');
+    });
+    
+    $('#btn-guardar-password').on('click', function() {
+        var id = $('#password-usuario-id').val();
+        var nueva = $('#password-nueva').val();
+        var confirm = $('#password-confirm').val();
+        
+        if (!nueva) {
+            alert('Ingrese una nueva contraseña');
+            return;
+        }
+        
+        if (nueva.length < 4) {
+            alert('La contraseña debe tener al menos 4 caracteres');
+            return;
+        }
+        
+        if (nueva !== confirm) {
+            alert('Las contraseñas no coinciden');
+            return;
+        }
+        
+        $.ajax({
+            url: `/usuarios/cambiar-password/${id}`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ password: nueva }),
+            success: function(data) {
+                if (data.success) {
+                    alert(data.mensaje);
+                    $('#modalPassword').modal('hide');
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            },
+            error: function() {
+                alert('Error de comunicación');
+            }
+        });
+    });
+    
+    // Evento: Asignar menús
+    $(document).on('click', '.btn-menus', function() {
+        var id = $(this).data('id');
+        var nombre = $(this).data('nombre');
+        cargarMenus(id, nombre);
+    });
+    
+    $(document).on('click', '.btn-asignar-menu', function() {
+        var usuarioId = $('#menus-usuario-id').val();
+        var menuId = $(this).data('menu-id');
+        var menuNombre = $(this).data('menu-nombre');
+        asignarMenu(usuarioId, menuId, menuNombre);
+    });
+    
+    $(document).on('click', '.btn-quitar-menu', function() {
+        var usuarioId = $('#menus-usuario-id').val();
+        var menuId = $(this).data('menu-id');
+        var menuNombre = $(this).data('menu-nombre');
+        quitarMenu(usuarioId, menuId, menuNombre);
+    });
+    
+    // Evento: Eliminar usuario
+    $(document).on('click', '.btn-eliminar', function() {
+        var id = $(this).data('id');
+        var nombre = $(this).data('nombre');
+        
+        if (!confirm(`¿Eliminar el usuario "${nombre}"?\nEsta acción no se puede deshacer.`)) return;
+        
+        $.ajax({
+            url: `/usuarios/eliminar/${id}`,
+            method: 'DELETE',
+            success: function(data) {
+                if (data.success) {
+                    alert(data.mensaje);
+                    cargarUsuarios();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            },
+            error: function() {
+                alert('Error de comunicación');
+            }
+        });
+    });
+    
+    // Inicializar
+    cargarUsuarios();
+});
+</script>
+{% endblock %}

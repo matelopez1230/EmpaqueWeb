@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4" style="color: #2c3e50;">
+        <i class="fas fa-file-invoice mr-2"></i>Pedidos Remitidos
+    </h2>
+
+    <div class="card card-custom">
+        <div class="card-header bg-primary-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-filter mr-2"></i>Filtros</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="filtro-empaque">N° Empaque:</label>
+                        <input type="text" id="filtro-empaque" class="form-control input-custom" placeholder="Buscar por empaque...">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="filtro-pedido">Pedido:</label>
+                        <input type="text" id="filtro-pedido" class="form-control input-custom" placeholder="Buscar por pedido...">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="filtro-cliente">Cliente:</label>
+                        <input type="text" id="filtro-cliente" class="form-control input-custom" placeholder="Buscar por cliente...">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label for="filtro-fecha-desde">Fecha Remito desde:</label>
+                        <input type="date" id="filtro-fecha-desde" class="form-control input-custom">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label for="filtro-fecha-hasta">Fecha Remito hasta:</label>
+                        <input type="date" id="filtro-fecha-hasta" class="form-control input-custom">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label>&nbsp;</label>
+                        <div>
+                            <button id="btn-buscar" class="btn btn-primary-custom">
+                                <i class="fas fa-search mr-1"></i>Buscar
+                            </button>
+                            <button id="btn-limpiar" class="btn btn-secondary">
+                                <i class="fas fa-eraser mr-1"></i>Limpiar
+                            </button>
+                            <button id="btn-pdf" class="btn btn-danger-custom">
+                                <i class="fas fa-file-pdf mr-1"></i>PDF
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card card-custom mt-3">
+        <div class="card-header bg-success-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-table-list mr-2"></i>Resultados</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-custom" id="tabla-resultados">
+                    <thead>
+                        <tr>
+                            <th>N° Empaque</th>
+                            <th>Cliente</th>
+                            <th>Dirección</th>
+                            <th>Código</th>
+                            <th>Descripción</th>
+                            <th>Pedidos</th>
+                            <th class="text-right">Total Pedido</th>
+                            <th class="text-right">Total Entregado</th>
+                            <th>Fecha Remito</th>
+                            <th>N° Remito</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-resultados">
+                        <tr>
+                            <td colspan="10" class="text-center">
+                                <i class="fas fa-info-circle mr-2"></i> Ingrese filtros y presione Buscar
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    console.log('Pedidos Remitidos iniciado');
+    
+    function buscar() {
+        var empaque = $('#filtro-empaque').val();
+        var pedido = $('#filtro-pedido').val();
+        var cliente = $('#filtro-cliente').val();
+        var fecha_desde = $('#filtro-fecha-desde').val();
+        var fecha_hasta = $('#filtro-fecha-hasta').val();
+        
+        $('#lista-resultados').html('<tr><td colspan="10" class="text-center"><i class="fas fa-spinner fa-spin"></i> Buscando...</td></tr>');
+        
+        $.get('/pedidos-remitidos/buscar', {
+            empaque: empaque,
+            pedido: pedido,
+            cliente: cliente,
+            fecha_desde: fecha_desde,
+            fecha_hasta: fecha_hasta
+        })
+        .done(function(data) {
+            var tbody = $('#lista-resultados');
+            tbody.empty();
+            
+            if (!data || data.length === 0) {
+                tbody.append('<tr><td colspan="10" class="text-center">No se encontraron resultados</td></tr>');
+                return;
+            }
+            
+            data.forEach(function(item) {
+                tbody.append(`
+                    <tr>
+                        <td><strong>${item.numero_empaque}</strong></td>
+                        <td>${item.cliente}</td>
+                        <td>${item.direccion}</td>
+                        <td>${item.cod_art}</td>
+                        <td>${item.descripcion}</td>
+                        <td><small>${item.pedidos_relacionados}</small></td>
+                        <td class="text-right">${item.total_pedido.toLocaleString()}</td>
+                        <td class="text-right">${item.total_entregado.toLocaleString()}</td>
+                        <td>${item.fecha_remito || '-'}</td>
+                        <td>${item.nro_remito || '-'}</td>
+                    </tr>
+                `);
+            });
+        })
+        .fail(function() {
+            $('#lista-resultados').html('<tr><td colspan="10" class="text-center text-danger">Error al buscar</td></tr>');
+        });
+    }
+    
+    function limpiar() {
+        $('#filtro-empaque').val('');
+        $('#filtro-pedido').val('');
+        $('#filtro-cliente').val('');
+        $('#filtro-fecha-desde').val('');
+        $('#filtro-fecha-hasta').val('');
+        $('#lista-resultados').html('<tr><td colspan="10" class="text-center">Ingrese filtros y presione Buscar</td></tr>');
+    }
+    
+    function generarPDF() {
+        var empaque = $('#filtro-empaque').val();
+        var pedido = $('#filtro-pedido').val();
+        var cliente = $('#filtro-cliente').val();
+        var fecha_desde = $('#filtro-fecha-desde').val();
+        var fecha_hasta = $('#filtro-fecha-hasta').val();
+        
+        var url = '/pedidos-remitidos/pdf?empaque=' + encodeURIComponent(empaque) + 
+                  '&pedido=' + encodeURIComponent(pedido) +
+                  '&cliente=' + encodeURIComponent(cliente) +
+                  '&fecha_desde=' + encodeURIComponent(fecha_desde) +
+                  '&fecha_hasta=' + encodeURIComponent(fecha_hasta);
+        window.open(url, '_blank');
+    }
+    
+    $('#btn-buscar').on('click', buscar);
+    $('#btn-limpiar').on('click', limpiar);
+    $('#btn-pdf').on('click', generarPDF);
+    
+    // Al presionar Enter en cualquier campo, buscar
+    $('#filtro-empaque, #filtro-pedido, #filtro-cliente, #filtro-fecha-desde, #filtro-fecha-hasta').on('keypress', function(e) {
+        if (e.which === 13) {
+            buscar();
+        }
+    });
+});
+</script>
+{% endblock %}

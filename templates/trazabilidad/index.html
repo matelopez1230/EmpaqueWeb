@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4" style="color: #2c3e50;">
+        <i class="fas fa-chart-line mr-2"></i>Trazabilidad
+    </h2>
+
+    <div class="card card-custom">
+        <div class="card-header bg-primary-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-filter mr-2"></i>Filtros</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="filtro-lote">Lote:</label>
+                        <input type="text" id="filtro-lote" class="form-control input-custom" placeholder="Buscar por lote...">
+                        <small class="text-muted">Busca el número sin el prefijo</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="filtro-producto">Producto:</label>
+                        <input type="text" id="filtro-producto" class="form-control input-custom" placeholder="Buscar por producto...">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="filtro-cliente">Cliente:</label>
+                        <select id="filtro-cliente" class="form-control input-custom" style="height: auto; min-height: 45px; padding: 8px 12px; font-size: 1rem;">
+                            <option value="">Todos los clientes</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="filtro-fecha-desde">Fecha Empaque desde:</label>
+                        <input type="date" id="filtro-fecha-desde" class="form-control input-custom">
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="filtro-fecha-hasta">Fecha Empaque hasta:</label>
+                        <input type="date" id="filtro-fecha-hasta" class="form-control input-custom">
+                    </div>
+                </div>
+                <div class="col-md-9">
+                    <div class="form-group">
+                        <label>&nbsp;</label>
+                        <div>
+                            <button id="btn-buscar" class="btn btn-primary-custom">
+                                <i class="fas fa-search mr-1"></i>Buscar
+                            </button>
+                            <button id="btn-limpiar" class="btn btn-secondary">
+                                <i class="fas fa-eraser mr-1"></i>Limpiar
+                            </button>
+                            <button id="btn-pdf" class="btn btn-danger-custom">
+                                <i class="fas fa-file-pdf mr-1"></i>Generar PDF
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card card-custom mt-3">
+        <div class="card-header bg-success-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-table-list mr-2"></i>Resultados</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-custom" id="tabla-resultados">
+                    <thead>
+                        <tr>
+                            <th>Lote</th>
+                            <th>Producto</th>
+                            <th>Descripción</th>
+                            <th>Cliente</th>
+                            <th class="text-right">Cantidad</th>
+                            <th>Mes de Entrega</th>
+                            <th>Fecha Empaque</th>
+                         </thead>
+                    <tbody id="lista-resultados">
+                        <tr>
+                            <td colspan="7" class="text-center">
+                                <i class="fas fa-info-circle mr-2"></i> Ingrese filtros y presione Buscar
+                             ‐
+                         ‐
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof $ === 'undefined') {
+        console.error('jQuery no está cargado');
+        return;
+    }
+    
+    console.log('Trazabilidad iniciada');
+    
+    // Cargar clientes según los filtros aplicados
+    function cargarClientes() {
+        var lote = $('#filtro-lote').val();
+        var producto = $('#filtro-producto').val();
+        var fecha_desde = $('#filtro-fecha-desde').val();
+        var fecha_hasta = $('#filtro-fecha-hasta').val();
+        var clienteSelect = $('#filtro-cliente');
+        
+        clienteSelect.html('<option value="">Cargando clientes...</option>');
+        
+        $.get('/trazabilidad/clientes', {
+            lote: lote,
+            producto: producto,
+            fecha_desde: fecha_desde,
+            fecha_hasta: fecha_hasta
+        })
+        .done(function(data) {
+            clienteSelect.empty();
+            clienteSelect.append('<option value="">Todos los clientes</option>');
+            
+            if (data && data.length > 0) {
+                data.forEach(function(cliente) {
+                    clienteSelect.append(`<option value="${cliente.replace(/"/g, '&quot;')}">${cliente}</option>`);
+                });
+            }
+        })
+        .fail(function() {
+            clienteSelect.html('<option value="">Error al cargar clientes</option>');
+        });
+    }
+    
+    // Buscar resultados
+    function buscar() {
+        var lote = $('#filtro-lote').val();
+        var producto = $('#filtro-producto').val();
+        var cliente = $('#filtro-cliente').val();
+        var fecha_desde = $('#filtro-fecha-desde').val();
+        var fecha_hasta = $('#filtro-fecha-hasta').val();
+        
+        if (!lote && !producto && !cliente && !fecha_desde && !fecha_hasta) {
+            alert('Ingrese al menos un filtro');
+            return;
+        }
+        
+        $('#lista-resultados').html('<tr><td colspan="7" class="text-center"><i class="fas fa-spinner fa-spin"></i> Buscando...</td></tr>');
+        
+        $.get('/trazabilidad/buscar', {
+            lote: lote,
+            producto: producto,
+            cliente: cliente,
+            fecha_desde: fecha_desde,
+            fecha_hasta: fecha_hasta
+        })
+        .done(function(data) {
+            var tbody = $('#lista-resultados');
+            tbody.empty();
+            
+            if (!data || data.length === 0) {
+                tbody.append('<tr><td colspan="7" class="text-center">No se encontraron resultados</td></tr>');
+                return;
+            }
+            
+            data.forEach(function(item) {
+                tbody.append(`
+                    <tr>
+                        <td><strong>${item.lote}</strong></td>
+                        <td>${item.producto}</td>
+                        <td>${item.descripcion}</td>
+                        <td>${item.cliente}</td>
+                        <td class="text-right">${item.cantidad}</td>
+                        <td>${item.mes_entrega}</td>
+                        <td>${item.fecha_empaque}</td>
+                    </tr>
+                `);
+            });
+        })
+        .fail(function() {
+            $('#lista-resultados').html('<tr><td colspan="7" class="text-center text-danger">Error al buscar</td></tr>');
+        });
+    }
+    
+    function limpiar() {
+        $('#filtro-lote').val('');
+        $('#filtro-producto').val('');
+        $('#filtro-cliente').val('');
+        $('#filtro-fecha-desde').val('');
+        $('#filtro-fecha-hasta').val('');
+        $('#filtro-cliente').html('<option value="">Todos los clientes</option>');
+        $('#lista-resultados').html('<tr><td colspan="7" class="text-center">Ingrese filtros y presione Buscar</td></tr>');
+    }
+    
+    function generarPDF() {
+        var lote = $('#filtro-lote').val();
+        var producto = $('#filtro-producto').val();
+        var cliente = $('#filtro-cliente').val();
+        var fecha_desde = $('#filtro-fecha-desde').val();
+        var fecha_hasta = $('#filtro-fecha-hasta').val();
+        
+        var url = '/trazabilidad/pdf?lote=' + encodeURIComponent(lote) + 
+                  '&producto=' + encodeURIComponent(producto) +
+                  '&cliente=' + encodeURIComponent(cliente) +
+                  '&fecha_desde=' + encodeURIComponent(fecha_desde) +
+                  '&fecha_hasta=' + encodeURIComponent(fecha_hasta);
+        window.open(url, '_blank');
+    }
+    
+    // Eventos
+    $('#btn-buscar').on('click', buscar);
+    $('#btn-limpiar').on('click', limpiar);
+    $('#btn-pdf').on('click', generarPDF);
+    
+    // Cuando cambia algún filtro, actualizar la lista de clientes
+    $('#filtro-lote').on('change', cargarClientes);
+    $('#filtro-producto').on('change', cargarClientes);
+    $('#filtro-fecha-desde').on('change', cargarClientes);
+    $('#filtro-fecha-hasta').on('change', cargarClientes);
+    
+    // Al presionar Enter en cualquier campo, buscar
+    $('#filtro-lote, #filtro-producto, #filtro-cliente, #filtro-fecha-desde, #filtro-fecha-hasta').on('keypress', function(e) {
+        if (e.which === 13) {
+            buscar();
+        }
+    });
+});
+</script>
+{% endblock %}

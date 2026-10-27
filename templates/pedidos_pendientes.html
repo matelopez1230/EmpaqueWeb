@@ -1,0 +1,977 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- 🔹 TÍTULO -->
+    <h4 class="mb-3" style="color: #2c3e50;">
+        <i class="fas fa-clipboard-list mr-2"></i>Pedidos No Remitidos
+    </h4>
+
+    <!-- 🔥 FILTROS EN UNA SOLA FILA -->
+    <div class="row mb-3">
+        <!-- 🔹 Filtro acumulativo (75%) -->
+        <div class="col-md-9">
+            <div class="card card-custom">
+                <div class="card-body py-2">
+                    <div class="form-inline w-100">
+                        <label for="q" class="mr-2 font-weight-bold">Agregar filtro:</label>
+                        <input type="text" class="form-control input-custom mr-2 flex-grow-1" id="q" name="q" 
+                               placeholder="Escribí un término y presioná Enter...">
+                        <button type="button" id="btn-agregar-termino" class="btn btn-primary-custom btn-custom">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                        <input type="hidden" name="order_col" value="{{ order_col }}">
+                        <input type="hidden" name="order_dir" value="{{ order_dir }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 🔹 Filtro estado (25%) -->
+        <div class="col-md-3">
+            <div class="form-group mb-0 d-flex align-items-center">
+                <label for="filtro-estado" class="font-weight-bold mb-0 mr-2">
+                    <i class="fas fa-filter mr-1"></i>Estado:
+                </label>
+                <select id="filtro-estado" class="form-control input-custom"
+                        style="height: 38px; padding: 6px 10px; flex: 1;">
+                    <option value="todos">📋 Todos</option>
+                    <option value="disponibles">✅ Disponibles</option>
+                    <option value="reservados">🔖 Reservados</option>
+                    <option value="pickeados">📦 Pickeados</option>
+                    <option value="empacados">📦📦 Empaque</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🔹 Chips de filtros -->
+    <div id="filtros-activos" class="mb-3" style="display: none;">
+        <div class="d-flex flex-wrap align-items-center">
+            <span class="mr-2 font-weight-bold">
+                <i class="fas fa-filter mr-1"></i>Filtros activos:
+            </span>
+            <div id="chips-container" class="d-flex flex-wrap"></div>
+            <button id="btn-limpiar-todos" class="btn btn-sm btn-outline-danger ml-2">
+                <i class="fas fa-times mr-1"></i>Limpiar todo
+            </button>
+        </div>
+    </div>
+
+    <!-- 🔹 BOTONES Y CONTADORES -->
+    <div class="row mb-3 align-items-center">
+        <div class="col-md-7 d-flex align-items-center">
+            <button id="btn-reservar" class="btn btn-success-custom btn-custom mr-2">
+                <i class="fas fa-check-circle mr-1"></i> Reservar seleccionados
+            </button>
+            <button id="btn-desreservar" class="btn btn-warning-custom btn-custom mr-2">
+                <i class="fas fa-times-circle mr-1"></i> Desreservar seleccionados
+            </button>
+            <button id="btn-generar-pdf" class="btn btn-danger-custom btn-custom mr-2">
+                <i class="fas fa-file-pdf mr-1"></i> Generar PDF
+            </button>
+            <span id="contador-seleccionados" class="badge badge-info-custom p-2">
+                0 seleccionados
+            </span>
+        </div>
+        <div class="col-md-5 d-flex justify-content-end align-items-center">
+            <div class="contador-custom d-inline-block text-right">
+                <div style="line-height: 1.2;">
+                    <i class="fas fa-check-circle mr-1"></i>
+                    Total Registros: <span id="contador-visibles">0</span>
+                </div>
+                <div style="line-height: 1.2;">
+                    <i class="fas fa-calculator mr-1"></i>
+                    Total unidades: <span id="total-unidades">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🔹 Tabla de pedidos con scroll y cabecera fija -->
+    <div class="table-responsive" style="border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-height: 70vh; overflow-y: auto;">
+        <table class="table table-custom" id="tabla-pedidos">
+            <thead>
+                <tr>
+                    <th style="position: sticky; top: 0; background: #2c3e50; z-index: 10;">
+                        <a href="{{ url_for('pedidos.pedidos_pendientes', q=terminos_activos|join(' '), order_col='Entrega', order_dir='desc' if order_col=='Entrega' and order_dir=='asc' else 'asc') }}" 
+                        style="color: white; text-decoration: none;">
+                            Entrega
+                            {% if order_col == 'Entrega' %}
+                                {% if order_dir == 'asc' %} <i class="fas fa-arrow-up ml-1"></i>{% else %} <i class="fas fa-arrow-down ml-1"></i>{% endif %}
+                            {% endif %}
+                        </a>
+                    </th>
+                    <th style="position: sticky; top: 0; background: #2c3e50; z-index: 10;">
+                        <a href="{{ url_for('pedidos.pedidos_pendientes', q=terminos_activos|join(' '), order_col='NroCbt', order_dir='desc' if order_col=='NroCbt' and order_dir=='asc' else 'asc') }}"
+                        style="color: white; text-decoration: none;">
+                            Pedido
+                            {% if order_col == 'NroCbt' %}
+                                {% if order_dir == 'asc' %} <i class="fas fa-arrow-up ml-1"></i>{% else %} <i class="fas fa-arrow-down ml-1"></i>{% endif %}
+                            {% endif %}
+                        </a>
+                    </th>
+                    <th style="position: sticky; top: 0; background: #2c3e50; z-index: 10;">
+                        <a href="{{ url_for('pedidos.pedidos_pendientes', q=terminos_activos|join(' '), order_col='Cliente', order_dir='desc' if order_col=='Cliente' and order_dir=='asc' else 'asc') }}"
+                        style="color: white; text-decoration: none;">
+                            Cliente
+                            {% if order_col == 'Cliente' %}
+                                {% if order_dir == 'asc' %} <i class="fas fa-arrow-up ml-1"></i>{% else %} <i class="fas fa-arrow-down ml-1"></i>{% endif %}
+                            {% endif %}
+                        </a>
+                    </th>
+                    <th style="position: sticky; top: 0; background: #2c3e50; z-index: 10;">Dirección Envío</th>
+                    <th style="position: sticky; top: 0; background: #2c3e50; z-index: 10;">
+                        <a href="{{ url_for('pedidos.pedidos_pendientes', q=terminos_activos|join(' '), order_col='CodArt', order_dir='desc' if order_col=='CodArt' and order_dir=='asc' else 'asc') }}"
+                        style="color: white; text-decoration: none;">
+                            Artículo
+                            {% if order_col == 'CodArt' %}
+                                {% if order_dir == 'asc' %} <i class="fas fa-arrow-up ml-1"></i>{% else %} <i class="fas fa-arrow-down ml-1"></i>{% endif %}
+                            {% endif %}
+                        </a>
+                    </th>
+                    <th style="position: sticky; top: 0; background: #2c3e50; z-index: 10;">
+                        <a href="{{ url_for('pedidos.pedidos_pendientes', q=terminos_activos|join(' '), order_col='CodDesArticulo', order_dir='desc' if order_col=='CodDesArticulo' and order_dir=='asc' else 'asc') }}"
+                        style="color: white; text-decoration: none;">
+                            Descripción
+                            {% if order_col == 'CodDesArticulo' %}
+                                {% if order_dir == 'asc' %} <i class="fas fa-arrow-up ml-1"></i>{% else %} <i class="fas fa-arrow-down ml-1"></i>{% endif %}
+                            {% endif %}
+                        </a>
+                    </th>
+                    <th style="position: sticky; top: 0; background: #2c3e50; z-index: 10;">
+                        <a href="{{ url_for('pedidos.pedidos_pendientes', q=terminos_activos|join(' '), order_col='CanPedPen', order_dir='desc' if order_col=='CanPedPen' and order_dir=='asc' else 'asc') }}"
+                        style="color: white; text-decoration: none;">
+                            Cant. Pend.
+                            {% if order_col == 'CanPedPen' %}
+                                {% if order_dir == 'asc' %} <i class="fas fa-arrow-up ml-1"></i>{% else %} <i class="fas fa-arrow-down ml-1"></i>{% endif %}
+                            {% endif %}
+                        </a>
+                    </th>
+                    <th style="position: sticky; top: 0; background: #2c3e50; z-index: 10;">Cant. Pickeada</th>
+                    <th style="position: sticky; top: 0; background: #2c3e50; z-index: 10;">Reservado</th>
+                    <th style="position: sticky; top: 0; background: #2c3e50; z-index: 10;">Pickeado</th>
+                    <th style="position: sticky; top: 0; background: #2c3e50; z-index: 10;">Empaque</th>
+                    <th style="position: sticky; top: 0; background: #2c3e50; z-index: 10;">
+                        <a href="{{ url_for('pedidos.pedidos_pendientes', q=terminos_activos|join(' '), order_col='StockDisponible', order_dir='desc' if order_col=='StockDisponible' and order_dir=='asc' else 'asc') }}"
+                        style="color: white; text-decoration: none;">
+                            Stock Disp.
+                            {% if order_col == 'StockDisponible' %}
+                                {% if order_dir == 'asc' %} <i class="fas fa-arrow-up ml-1"></i>{% else %} <i class="fas fa-arrow-down ml-1"></i>{% endif %}
+                            {% endif %}
+                        </a>
+                    </th>
+                    <th style="position: sticky; top: 0; background: #2c3e50; z-index: 10;">
+                        <a href="{{ url_for('pedidos.pedidos_pendientes', q=terminos_activos|join(' '), order_col='EstadoStock', order_dir='desc' if order_col=='EstadoStock' and order_dir=='asc' else 'asc') }}"
+                        style="color: white; text-decoration: none;">
+                            Estado
+                            {% if order_col == 'EstadoStock' %}
+                                {% if order_dir == 'asc' %} <i class="fas fa-arrow-up ml-1"></i>{% else %} <i class="fas fa-arrow-down ml-1"></i>{% endif %}
+                            {% endif %}
+                        </a>
+                    </th>
+                    <th style="position: sticky; top: 0; background: #2c3e50; z-index: 10;">Orden</th>
+                    <th style="position: sticky; top: 0; background: #2c3e50; z-index: 10;">Observaciones</th>
+                    <th style="text-align: center; position: sticky; top: 0; background: #2c3e50; z-index: 10; width: 100px;">
+                        <input type="checkbox" id="seleccionar-todos" class="checkbox-custom mr-1"> 
+                        <label for="seleccionar-todos" class="mb-0" style="color: white;">Todo</label>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ped in pedidos %}
+                <tr class="fila-pedido 
+                    {% if ped.EstaReservado %}fila-reservada{% endif %}
+                    {% if ped.EstaPickeado %}fila-pickeada{% endif %}
+                    {% if ped.EstaEnEmpaque %}fila-empaque{% endif %}" 
+                    data-pedido="{{ ped.NroCbt }}" 
+                    data-articulo="{{ ped.CodArt }}" 
+                    data-cantidad="{{ ped.CanPedPen }}"
+                    data-cantidad-pickeada="{{ ped.CantidadPickeada }}"
+                    data-reservado="{{ ped.EstaReservado }}" 
+                    data-pickeado="{{ ped.EstaPickeado }}"
+                    data-empaque="{{ ped.EstaEnEmpaque }}"
+                    data-stock="{{ ped.StockDisponible }}">
+                    <td>{{ ped.Entrega | format_date if ped.Entrega else '' }}</td>
+                    <td><strong>{{ ped.NroCbt }}</strong></td>
+                    <td>{{ ped.Cliente }}</td>
+                    <td>{{ ped.DomEnv }}</td>
+                    <td>{{ ped.CodArt }}</td>
+                    <td>{{ ped.CodDesArticulo }}</td>
+                    <td class="text-right font-weight-bold">{{ ped.CanPedPen | formato_cantidad }}</td>
+                    <td class="text-right">{{ ped.CantidadPickeada | formato_cantidad }}</td>
+                    <td class="text-center">
+                        {% if ped.EstaReservado %}
+                            <span class="badge badge-success-custom"><i class="fas fa-check"></i> Reservado</span>
+                        {% else %}
+                            <span class="badge badge-secondary-custom"><i class="fas fa-times"></i> No</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if ped.EstaPickeado %}
+                            <span class="badge badge-primary-custom"><i class="fas fa-box"></i> Pickeado</span>
+                        {% else %}
+                            <span class="badge badge-secondary-custom"><i class="fas fa-clock"></i> Pendiente</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if ped.EstaEnEmpaque %}
+                            <span class="badge badge-info-custom"><i class="fas fa-boxes"></i> En Empaque</span>
+                        {% else %}
+                            <span class="badge badge-secondary-custom"><i class="fas fa-minus"></i> No</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-right {% if ped.StockDisponible < ped.CanPedPen %}text-danger font-weight-bold{% endif %}">
+                        {{ ped.StockDisponible | formato_cantidad }}
+                    </td>
+                    <td>
+                        {% if ped.EstadoStock == 'CUBRE' %}
+                            <span class="badge badge-success-custom px-3 py-2">CUBRE</span>
+                        {% else %}
+                            <span class="badge badge-danger-custom px-3 py-2">NO CUBRE</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">{{ ped.Orden if ped.Orden else '-' }}</td>
+                    <td class="text-center">{{ ped.Observaciones if ped.Observaciones else '-' }}</td>
+                    <td class="text-center">
+                        <input type="checkbox" class="marcar-reserva checkbox-custom" 
+                            data-pedido="{{ ped.NroCbt }}"
+                            data-articulo="{{ ped.CodArt }}"
+                            data-cantidad="{{ ped.CanPedPen }}"
+                            data-stock="{{ ped.StockDisponible }}"
+                            {% if ped.EstaReservado %}checked{% endif %}
+                            {% if ped.EstaPickeado|int == 1 or ped.EstaEnEmpaque|int == 1 %}disabled{% endif %}>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="16" class="text-center py-4">
+                        <i class="fas fa-info-circle mr-2"></i>No hay pedidos pendientes
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal de Confirmación de Reserva -->
+<div class="modal fade" id="modalConfirmarReserva" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-success-custom text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-check-circle mr-2"></i>Confirmar Reserva
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered" id="tabla-reservas-confirmar">
+                        <thead>
+                            <tr>
+                                <th>Pedido</th>
+                                <th>Artículo</th>
+                                <th>Descripción</th>
+                                <th class="text-right">Cantidad Pedida</th>
+                                <th class="text-right">Stock Disponible</th>
+                                <th class="text-right">Cantidad a Reservar</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modal-reservas-items">
+                            <!-- Se llena dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-info mt-3" id="modal-resumen-reserva">
+                    <strong>Resumen:</strong>
+                    <span id="modal-total-items">0</span> item(s) seleccionados |
+                    <span id="modal-total-unidades">0</span> unidades totales
+                </div>
+                <div id="modal-reserva-error" class="alert alert-danger" style="display: none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success-custom" id="btn-confirmar-reserva">
+                    <i class="fas fa-check mr-1"></i>Confirmar Reserva
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.chip {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    border-radius: 50px;
+    font-size: 0.9rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.chip:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.eliminar-chip {
+    background: none;
+    border: none;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.3s ease;
+}
+
+.eliminar-chip:hover {
+    opacity: 1;
+}
+
+.fila-reservada {
+    background-color: #e8f4f8 !important;
+}
+
+.fila-pickeada {
+    background-color: #e8f8e8 !important;
+}
+
+.fila-empaque {
+    background-color: #f8e8e8 !important;
+    opacity: 0.8;
+}
+
+/* 🔹 ESTILOS PARA CABECERA FIJA */
+.table-responsive {
+    max-height: 70vh;
+    overflow-y: auto;
+    position: relative;
+    border: 1px solid #ddd;
+    border-radius: 12px;
+}
+
+#tabla-pedidos {
+    width: 100%;
+    margin-bottom: 0;
+    border-collapse: collapse;
+}
+
+#tabla-pedidos thead {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+#tabla-pedidos thead th {
+    position: sticky;
+    top: 0;
+    background: #2c3e50;
+    color: white;
+    z-index: 101;
+    border-bottom: 2px solid #1a252f;
+    padding: 12px 10px;
+}
+
+#tabla-pedidos tbody td {
+    padding: 10px;
+    vertical-align: middle;
+}
+
+/* Fondo alternado para mejor legibilidad */
+#tabla-pedidos tbody tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Variable global para términos activos (accesible desde cualquier función)
+var terminosActivosGlobal = [];
+
+// Función para generar PDF con los datos visibles
+function generarPDF() {
+    console.log('Generando PDF...');
+    var filas = [];
+    var totalUnidades = 0;
+    var totalUnidadesPickeadas = 0;
+    
+    $('.fila-pedido:visible').each(function() {
+        var fila = $(this);
+        var cantidad = parseFloat(fila.data('cantidad')) || 0;
+        var cantidadPickeada = parseFloat(fila.data('cantidad-pickeada')) || 0;
+        totalUnidades += cantidad;
+        totalUnidadesPickeadas += cantidadPickeada;
+        
+        filas.push({
+            pedido: fila.find('td:eq(1)').text().trim(),
+            cliente: fila.find('td:eq(2)').text().trim(),
+            direccion: fila.find('td:eq(3)').text().trim(),
+            articulo: fila.find('td:eq(4)').text().trim(),
+            descripcion: fila.find('td:eq(5)').text().trim(),
+            cantidad: cantidad,
+            cantidadPickeada: cantidadPickeada
+        });
+    });
+    
+    if (filas.length === 0) {
+        alert('No hay datos para generar el PDF');
+        return;
+    }
+    
+    // Obtener filtros activos usando la variable global
+    var filtrosTexto = '';
+    if (terminosActivosGlobal.length > 0) {
+        filtrosTexto = '<br><small>Filtros aplicados: ' + terminosActivosGlobal.join(', ') + '</small>';
+    }
+    var estadoTexto = $('#filtro-estado option:selected').text();
+    if (estadoTexto !== '📋 Todos') {
+        filtrosTexto += '<br><small>Estado: ' + estadoTexto + '</small>';
+    }
+    
+    var htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Reporte_Pedidos_Pendientes</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 20px; font-size: 11px; }
+            h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; font-size: 18px; }
+            .info { margin-bottom: 20px; font-size: 12px; }
+            .info p { margin: 5px 0; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+            th { background: #2c3e50; color: white; padding: 8px; text-align: left; font-size: 10px; border: 1px solid #ddd; }
+            td { padding: 6px; border: 1px solid #ddd; font-size: 10px; }
+            .footer { margin-top: 30px; font-size: 9px; color: #7f8c8d; text-align: center; }
+            .text-right { text-align: right; }
+        </style>
+    </head>
+    <body>
+        <h1>Reporte de Pedidos No Remitidos</h1>
+        <div class="info">
+            <p><strong>Fecha de generación:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>Total de registros:</strong> ${filas.length}</p>
+            <p><strong>Total unidades pendientes:</strong> ${totalUnidades.toLocaleString()}</p>
+            <p><strong>Total unidades pickeadas:</strong> ${totalUnidadesPickeadas.toLocaleString()}</p>
+            ${filtrosTexto}
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Pedido</th>
+                    <th>Cliente</th>
+                    <th>Dirección Envío</th>
+                    <th>Artículo</th>
+                    <th>Descripción</th>
+                    <th class="text-right">Cant. Pendiente</th>
+                    <th class="text-right">Cant. Pickeada</th>
+                </tr>
+            </thead>
+            <tbody>`;
+    
+    filas.forEach(function(f) {
+        htmlContent += `<tr>
+            <td>${f.pedido}</td>
+            <td>${f.cliente}</td>
+            <td>${f.direccion}</td>
+            <td>${f.articulo}</td>
+            <td>${f.descripcion.substring(0, 80)}${f.descripcion.length > 80 ? '...' : ''}</td>
+            <td class="text-right">${f.cantidad.toLocaleString()}</td>
+            <td class="text-right">${f.cantidadPickeada.toLocaleString()}</td>
+        </tr>`;
+    });
+    
+    htmlContent += `</tbody></table>
+        <div class="footer">
+            <p>Sistema de Gestión de Pedidos - Reporte generado el ${new Date().toLocaleString()}</p>
+        </div>
+    </body>
+    </html>`;
+    
+    // Abrir ventana para imprimir/guardar PDF
+    var ventana = window.open('', '_blank');
+    ventana.document.write(htmlContent);
+    ventana.document.close();
+    ventana.print();
+}
+
+$(document).ready(function() {
+    console.log('jQuery cargado correctamente');
+    
+    // Variables locales
+    var filtroEstadoActual = 'todos';
+    var terminosActivos = [];
+    
+    // Sincronizar con la variable global
+    function syncGlobalTerminos() {
+        terminosActivosGlobal = [...terminosActivos];
+    }
+    
+    // Funciones
+    function actualizarContadores() {
+        var totalVisibles = $('.fila-pedido:visible').length;
+        $('#contador-visibles').text(totalVisibles);
+        var totalHabilitados = $('.marcar-reserva:enabled:visible').length;
+        var seleccionados = $('.marcar-reserva:enabled:visible:checked').length;
+        $('#contador-seleccionados').text(seleccionados + ' de ' + totalHabilitados + ' seleccionados');
+        if (totalHabilitados > 0) {
+            $('#seleccionar-todos').prop('checked', totalHabilitados === seleccionados);
+        } else {
+            $('#seleccionar-todos').prop('checked', false);
+        }
+        calcularTotalUnidades();
+        syncGlobalTerminos();
+    }
+
+    function forzarDeshabilitado() {
+        $('.fila-pedido').each(function() {
+            var pickeado = parseInt($(this).data('pickeado')) === 1;
+            var empaque = parseInt($(this).data('empaque')) === 1;
+            var checkbox = $(this).find('.marcar-reserva');
+            
+            // Solo deshabilitar si está pickeado o empaquetado (NO por stock)
+            if (pickeado || empaque) {
+                checkbox.prop('disabled', true);
+                checkbox.prop('checked', false);
+            } else {
+                checkbox.prop('disabled', false);
+            }
+        });
+    }
+
+    // Ejecutar al cargar
+    forzarDeshabilitado();
+
+    // Ejecutar después de cualquier cambio en la tabla
+    $(document).on('change', '.marcar-reserva', function() {
+        setTimeout(forzarDeshabilitado, 50);
+    });
+
+    // Ejecutar después de aplicar filtros
+    $(document).on('click', '#btn-aplicar-filtros, #btn-limpiar-filtros, #btn-agregar-termino, #btn-limpiar-todos', function() {
+        setTimeout(forzarDeshabilitado, 100);
+    });
+    
+    function calcularTotalUnidades() {
+        var total = 0;
+        $('.fila-pedido:visible').each(function() {
+            total += parseFloat($(this).data('cantidad')) || 0;
+        });
+        $('#total-unidades').text(total.toLocaleString());
+    }
+    
+    function cumpleFiltroEstado(fila, filtro) {
+        if (filtro === 'todos') return true;
+        var reservado = parseInt(fila.data('reservado')) === 1;
+        var pickeado = parseInt(fila.data('pickeado')) === 1;
+        var empaque = parseInt(fila.data('empaque')) === 1;
+        if (filtro === 'disponibles') return !reservado && !pickeado && !empaque;
+        if (filtro === 'reservados') return reservado;
+        if (filtro === 'pickeados') return pickeado;
+        if (filtro === 'empacados') return empaque;
+        return true;
+    }
+    
+    function aplicarFiltrosConTerminos() {
+        $('.fila-pedido').each(function() {
+            var fila = $(this);
+            var textoCompleto = "";
+            fila.find('td').each(function(index) {
+                if (index < 13) {
+                    textoCompleto += " " + $(this).text().toLowerCase();
+                }
+            });
+            var cumple = true;
+            for (var i = 0; i < terminosActivos.length; i++) {
+                if (textoCompleto.indexOf(terminosActivos[i]) === -1) {
+                    cumple = false;
+                    break;
+                }
+            }
+            if (cumple) {
+                cumple = cumpleFiltroEstado(fila, filtroEstadoActual);
+            }
+            fila.toggle(cumple);
+        });
+        actualizarContadores();
+        syncGlobalTerminos();
+    }
+    
+    function actualizarChips() {
+        var container = $('#chips-container');
+        container.empty();
+        if (terminosActivos.length === 0) {
+            $('#filtros-activos').hide();
+            return;
+        }
+        terminosActivos.forEach(function(termino, index) {
+            container.append(`
+                <div class="chip bg-primary-custom text-white px-3 py-1 rounded-pill mr-2 mb-2 d-inline-flex align-items-center">
+                    <span>${termino}</span>
+                    <button class="btn btn-sm p-0 ml-2 text-white eliminar-chip" data-index="${index}">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `);
+        });
+        $('#filtros-activos').show();
+        syncGlobalTerminos();
+    }
+    
+    // Eventos
+    $('#filtro-estado').on('change', function() {
+        filtroEstadoActual = $(this).val();
+        aplicarFiltrosConTerminos();
+    });
+    
+    $('#q').on('keypress', function(e) {
+        if (e.which === 13) {
+            e.preventDefault();
+            var nuevoTermino = $(this).val().trim().toLowerCase();
+            if (nuevoTermino && !terminosActivos.includes(nuevoTermino)) {
+                terminosActivos.push(nuevoTermino);
+                $(this).val('');
+                actualizarChips();
+                aplicarFiltrosConTerminos();
+            }
+            return false;
+        }
+    });
+    
+    $('#btn-agregar-termino').on('click', function() {
+        var nuevoTermino = $('#q').val().trim().toLowerCase();
+        if (nuevoTermino && !terminosActivos.includes(nuevoTermino)) {
+            terminosActivos.push(nuevoTermino);
+            $('#q').val('');
+            actualizarChips();
+            aplicarFiltrosConTerminos();
+        }
+    });
+    
+    $(document).on('click', '.eliminar-chip', function() {
+        var index = $(this).data('index');
+        terminosActivos.splice(index, 1);
+        actualizarChips();
+        aplicarFiltrosConTerminos();
+    });
+    
+    $('#btn-limpiar-todos').on('click', function() {
+        terminosActivos = [];
+        actualizarChips();
+        $('#q').val('');
+        aplicarFiltrosConTerminos();
+    });
+    
+    // 🔥 NUEVO: Función para actualizar resumen de reserva
+    function actualizarResumenReserva(items) {
+        var totalItems = 0;
+        var totalUnidades = 0;
+        
+        items.forEach(function(item) {
+            if (item.cantidad_reservar > 0) {
+                totalItems++;
+                totalUnidades += item.cantidad_reservar;
+            }
+        });
+        
+        $('#modal-total-items').text(totalItems);
+        $('#modal-total-unidades').text(totalUnidades);
+    }
+    
+    // 🔥 NUEVO: Función para ejecutar desreserva
+    function ejecutarDesreserva(items) {
+        $('#btn-reservar, #btn-desreservar, #seleccionar-todos').prop('disabled', true);
+        var pendientes = items.length;
+        var errores = false;
+        var exitosos = 0;
+        
+        items.forEach(function(item) {
+            item.checkbox.prop('disabled', true);
+            
+            $.ajax({
+                url: '{{ url_for("pedidos.toggle_reserva") }}',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    pedido: item.pedido,
+                    articulo: item.articulo,
+                    cantidad: item.cantidad,
+                    marcar: false
+                }),
+                success: function(response) {
+                    if (response.success) {
+                        exitosos++;
+                        item.fila.removeClass('fila-reservada');
+                        item.fila.data('reservado', 0);
+                        item.fila.attr('data-reservado', '0');
+                        item.checkbox.prop('checked', false);
+                        item.fila.find('td:eq(8) .badge').removeClass('badge-success-custom').addClass('badge-secondary-custom')
+                            .html('<i class="fas fa-times"></i> No');
+                    } else {
+                        errores = true;
+                        console.error('Error:', response.error);
+                    }
+                },
+                error: function() {
+                    errores = true;
+                },
+                complete: function() {
+                    item.checkbox.prop('disabled', false);
+                    pendientes--;
+                    
+                    if (pendientes === 0) {
+                        $('#btn-reservar, #btn-desreservar, #seleccionar-todos').prop('disabled', false);
+                        if (errores) {
+                            alert(`Hubo errores. Se desreservaron ${exitosos} correctamente.`);
+                        } else {
+                            alert(`Operación completada. Se desreservaron ${exitosos} items.`);
+                        }
+                        actualizarContadores();
+                        aplicarFiltrosConTerminos();
+                    }
+                }
+            });
+        });
+    }
+    
+    // 🔥 NUEVO: Función para desreservar (comportamiento original)
+    function procesarDesreserva() {
+        var itemsAProcesar = [];
+        
+        $('.marcar-reserva:enabled:visible:checked').each(function() {
+            var cb = $(this);
+            var fila = cb.closest('tr');
+            var reservado = parseInt(fila.data('reservado')) === 1;
+            var pickeado = parseInt(fila.data('pickeado')) === 1;
+            var empaque = parseInt(fila.data('empaque')) === 1;
+            
+            if (reservado && !pickeado && !empaque) {
+                itemsAProcesar.push({
+                    checkbox: cb,
+                    fila: fila,
+                    pedido: cb.data('pedido'),
+                    articulo: cb.data('articulo'),
+                    cantidad: cb.data('cantidad')
+                });
+            }
+        });
+        
+        if (itemsAProcesar.length === 0) {
+            alert('No hay items seleccionados para desreservar (solo items RESERVADOS que NO estén pickeados ni empaquetados)');
+            return;
+        }
+        
+        if (!confirm(`¿Está seguro que desea desreservar ${itemsAProcesar.length} item(s)?`)) {
+            return;
+        }
+        
+        ejecutarDesreserva(itemsAProcesar);
+    }
+    
+    // 🔥 NUEVA FUNCIÓN: Procesar reserva con modal de confirmación
+        function procesarReservaConModal() {
+        // Recolectar items seleccionados
+        var itemsSeleccionados = [];
+        
+        $('.marcar-reserva:enabled:visible:checked').each(function() {
+            var cb = $(this);
+            var fila = cb.closest('tr');
+            
+            var reservado = parseInt(fila.data('reservado')) === 1;
+            var pickeado = parseInt(fila.data('pickeado')) === 1;
+            var empaque = parseInt(fila.data('empaque')) === 1;
+            
+            // Solo items NO reservados, NO pickeados, NO empaquetados
+            if (!reservado && !pickeado && !empaque) {
+                var pedido = cb.data('pedido');
+                var articulo = cb.data('articulo');
+                var cantidadPedida = parseFloat(fila.data('cantidad')) || 0;
+                
+                // 🔥 Obtener stock disponible de la columna Stock Disp.
+                var stockText = fila.find('td:eq(11)').text().trim().replace(/,/g, '');
+                var stockDisponible = parseFloat(stockText) || 0;
+                
+                var descripcion = fila.find('td:eq(5)').text().trim();
+                
+                // El stock disponible no puede ser mayor que la cantidad pedida
+                var maxReservar = Math.min(stockDisponible, cantidadPedida);
+                
+                console.log('DEBUG - Pedido:', pedido, 'Cantidad:', cantidadPedida, 'Stock:', stockDisponible, 'Max:', maxReservar);
+                
+                itemsSeleccionados.push({
+                    checkbox: cb,
+                    fila: fila,
+                    pedido: pedido,
+                    articulo: articulo,
+                    cantidad_pedida: cantidadPedida,
+                    stock_disponible: stockDisponible,
+                    descripcion: descripcion,
+                    cantidad_reservar: maxReservar > 0 ? maxReservar : 0
+                });
+            }
+        });
+        
+        if (itemsSeleccionados.length === 0) {
+            alert('No hay items seleccionados para reservar (solo items NO reservados, NO pickeados, NO empaquetados)');
+            return;
+        }
+        
+        // Llenar el modal
+        var tbody = $('#modal-reservas-items');
+        tbody.empty();
+        
+        itemsSeleccionados.forEach(function(item, index) {
+            var maxReservar = Math.min(item.cantidad_pedida, item.stock_disponible);
+            var valorInicial = maxReservar > 0 ? maxReservar : 0;
+            
+            tbody.append(`
+                <tr data-index="${index}">
+                    <td><strong>${item.pedido}</strong></td>
+                    <td>${item.articulo}</td>
+                    <td>${item.descripcion.substring(0, 40)}</td>
+                    <td class="text-right">${item.cantidad_pedida}</td>
+                    <td class="text-right stock-disponible">${item.stock_disponible}</td>
+                    <td class="text-right">
+                        <input type="number" class="form-control form-control-sm cantidad-reservar" 
+                            data-index="${index}" 
+                            value="${valorInicial}" 
+                            min="0" max="${maxReservar}" 
+                            step="1" style="width: 120px; display: inline-block;">
+                        <span class="text-muted small">/ ${item.cantidad_pedida}</span>
+                    </td>
+                </tr>
+            `);
+        });
+        
+        // Actualizar resumen
+        actualizarResumenReserva(itemsSeleccionados);
+        
+        // Mostrar modal
+        $('#modalConfirmarReserva').modal('show');
+        
+        // Guardar items en variable global
+        window.itemsReservaPendiente = itemsSeleccionados;
+        $('#modal-reserva-error').hide();
+        
+        // Eventos de cambio de cantidad
+        $('.cantidad-reservar').off('input').on('input', function() {
+            var index = $(this).data('index');
+            var valor = parseFloat($(this).val()) || 0;
+            var item = window.itemsReservaPendiente[index];
+            var maxReservar = Math.min(item.cantidad_pedida, item.stock_disponible);
+            
+            if (valor > maxReservar) {
+                $(this).val(maxReservar);
+                valor = maxReservar;
+            }
+            if (valor < 0) {
+                $(this).val(0);
+                valor = 0;
+            }
+            
+            item.cantidad_reservar = valor;
+            actualizarResumenReserva(window.itemsReservaPendiente);
+        });
+    }
+    // 🔥 Evento: Confirmar reserva desde el modal
+    $('#btn-confirmar-reserva').on('click', function() {
+        if (!window.itemsReservaPendiente) return;
+        
+        var itemsAProcesar = window.itemsReservaPendiente.filter(function(item) {
+            return item.cantidad_reservar > 0;
+        });
+        
+        if (itemsAProcesar.length === 0) {
+            $('#modal-reserva-error').text('No hay items con cantidad a reservar mayor a 0').show();
+            return;
+        }
+        
+        $('#modal-reserva-error').hide();
+        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i>Procesando...');
+        
+        var pendientes = itemsAProcesar.length;
+        var errores = false;
+        var exitosos = 0;
+        
+        itemsAProcesar.forEach(function(item) {
+            item.checkbox.prop('disabled', true);
+            
+            $.ajax({
+                url: '{{ url_for("pedidos.toggle_reserva") }}',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    pedido: item.pedido,
+                    articulo: item.articulo,
+                    cantidad: item.cantidad_reservar,
+                    marcar: true
+                }),
+                success: function(response) {
+                    if (response.success) {
+                        exitosos++;
+                        item.fila.addClass('fila-reservada');
+                        item.fila.data('reservado', 1);
+                        item.fila.attr('data-reservado', '1');
+                        item.checkbox.prop('checked', true);
+                        item.fila.find('td:eq(8) .badge').removeClass('badge-secondary-custom').addClass('badge-success-custom')
+                            .html('<i class="fas fa-check"></i> Reservado');
+                    } else {
+                        errores = true;
+                        console.error('Error:', response.error);
+                        $('#modal-reserva-error').text('Error en ' + item.pedido + ': ' + response.error).show();
+                    }
+                },
+                error: function(xhr) {
+                    errores = true;
+                    console.error('Error de comunicación:', xhr.status);
+                    $('#modal-reserva-error').text('Error de comunicación en ' + item.pedido).show();
+                },
+                complete: function() {
+                    item.checkbox.prop('disabled', false);
+                    pendientes--;
+                    
+                    if (pendientes === 0) {
+                        $('#btn-confirmar-reserva').prop('disabled', false).html('<i class="fas fa-check mr-1"></i>Confirmar Reserva');
+                        if (!errores) {
+                            $('#modalConfirmarReserva').modal('hide');
+                            alert(`Operación completada. Se reservaron ${exitosos} items.`);
+                        } else {
+                            alert(`Hubo errores. Se reservaron ${exitosos} items correctamente. Revise los errores.`);
+                        }
+                        actualizarContadores();
+                        aplicarFiltrosConTerminos();
+                        window.itemsReservaPendiente = null;
+                    }
+                }
+            });
+        });
+    });
+    
+    // 🔥 MODIFICAR: Botón Reservar - usa el nuevo modal
+    $('#btn-reservar').on('click', function() {
+        procesarReservaConModal();
+    });
+    
+    // 🔥 MODIFICAR: Botón Desreservar - usa el comportamiento original
+    $('#btn-desreservar').on('click', function() {
+        procesarDesreserva();
+    });
+    
+    $('#btn-generar-pdf').on('click', function() { generarPDF(); });
+    
+    $('#seleccionar-todos').on('change', function() {
+        $('.marcar-reserva:enabled:visible').prop('checked', $(this).prop('checked'));
+        actualizarContadores();
+    });
+    
+    $('.marcar-reserva').on('change', function() { actualizarContadores(); });
+    
+    // Inicializar
+    actualizarContadores();
+    forzarDeshabilitado();
+
+    
+});
+</script>
+{% endblock %}

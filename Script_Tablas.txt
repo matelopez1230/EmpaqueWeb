@@ -1,0 +1,145 @@
+USE [prueba]
+GO
+
+-- 1. Eliminar FKs que apuntan a las tablas a regenerar (y a Usuarios)
+IF OBJECT_ID('[dbo].[FK_ControlDetalle_Control]', 'F') IS NOT NULL ALTER TABLE [dbo].[EmpWebControlPalletDetalle] DROP CONSTRAINT [FK_ControlDetalle_Control];
+IF OBJECT_ID('[dbo].[FK_ControlDetalle_PalletDetalle]', 'F') IS NOT NULL ALTER TABLE [dbo].[EmpWebControlPalletDetalle] DROP CONSTRAINT [FK_ControlDetalle_PalletDetalle];
+IF OBJECT_ID('[dbo].[FK_ControlPallet_Pallet]', 'F') IS NOT NULL ALTER TABLE [dbo].[EmpWebControlPallet] DROP CONSTRAINT [FK_ControlPallet_Pallet];
+IF OBJECT_ID('[dbo].[FK_ControlPallet_Usuario]', 'F') IS NOT NULL ALTER TABLE [dbo].[EmpWebControlPallet] DROP CONSTRAINT [FK_ControlPallet_Usuario];
+IF OBJECT_ID('[dbo].[FK_PalletDetalle_Detalle]', 'F') IS NOT NULL ALTER TABLE [dbo].[EmpWebPalletDetalle] DROP CONSTRAINT [FK_PalletDetalle_Detalle];
+IF OBJECT_ID('[dbo].[FK_PalletDetalle_Pallet]', 'F') IS NOT NULL ALTER TABLE [dbo].[EmpWebPalletDetalle] DROP CONSTRAINT [FK_PalletDetalle_Pallet];
+IF OBJECT_ID('[dbo].[FK_PalletEmpaque_Empaque]', 'F') IS NOT NULL ALTER TABLE [dbo].[EmpWebPalletEmpaque] DROP CONSTRAINT [FK_PalletEmpaque_Empaque];
+IF OBJECT_ID('[dbo].[FK_PickLote_Detalle]', 'F') IS NOT NULL ALTER TABLE [dbo].[EmpWebPickingLotes] DROP CONSTRAINT [FK_PickLote_Detalle];
+IF OBJECT_ID('[dbo].[FK_PickLote_Empaque]', 'F') IS NOT NULL ALTER TABLE [dbo].[EmpWebPickingLotes] DROP CONSTRAINT [FK_PickLote_Empaque];
+IF OBJECT_ID('[dbo].[FK_PickLote_Usuario]', 'F') IS NOT NULL ALTER TABLE [dbo].[EmpWebPickingLotes] DROP CONSTRAINT [FK_PickLote_Usuario];
+IF OBJECT_ID('[dbo].[FK_Hist_Usuario]', 'F') IS NOT NULL ALTER TABLE [dbo].[EmpWebPickingLotesHistorial] DROP CONSTRAINT [FK_Hist_Usuario];
+IF OBJECT_ID('[dbo].[FK_Detalle_Empaque]', 'F') IS NOT NULL ALTER TABLE [dbo].[EmpWebEmpaqueDetalle] DROP CONSTRAINT [FK_Detalle_Empaque];
+IF OBJECT_ID('[dbo].[FK_Empaques_UsuarioCreacion]', 'F') IS NOT NULL ALTER TABLE [dbo].[EmpWebEmpaques] DROP CONSTRAINT [FK_Empaques_UsuarioCreacion];
+IF OBJECT_ID('[dbo].[FK_Reserva_Usuario]', 'F') IS NOT NULL ALTER TABLE [dbo].[EmpWebReservasPendientes] DROP CONSTRAINT [FK_Reserva_Usuario];
+
+-- 2. Eliminar Tablas
+DROP TABLE IF EXISTS [dbo].[EmpWebControlPalletDetalle];
+DROP TABLE IF EXISTS [dbo].[EmpWebControlPallet];
+DROP TABLE IF EXISTS [dbo].[EmpWebPalletDetalle];
+DROP TABLE IF EXISTS [dbo].[EmpWebPickingLotesHistorial];
+DROP TABLE IF EXISTS [dbo].[EmpWebPickingLotes];
+DROP TABLE IF EXISTS [dbo].[EmpWebPalletEmpaque];
+DROP TABLE IF EXISTS [dbo].[EmpWebEmpaqueDetalle];
+DROP TABLE IF EXISTS [dbo].[EmpWebEmpaques];
+DROP TABLE IF EXISTS [dbo].[EmpWebReservasPendientes];
+GO
+
+USE [prueba]
+GO
+
+-- EMPAQUES
+CREATE TABLE [dbo].[EmpWebEmpaques](
+	[IdEmpaque] [int] IDENTITY(1,1) NOT NULL,
+	[NumeroEmpaque] [varchar](20) NOT NULL,
+	[Cliente] [varchar](100) NULL,
+	[DireccionEnvio] [varchar](255) NULL,
+	[FechaCreacion] [datetime] DEFAULT (getdate()),
+	[UsuarioCreacion] [int] NULL,
+	[Estado] [varchar](20) DEFAULT ('PENDIENTE'),
+	[FechaCompletado] [datetime] NULL,
+	[ZonaEnvio] [varchar](100) NULL,
+	[FechaPalletizado] [datetime] NULL,
+	[UsuarioPalletizado] [int] NULL,
+	[ControlCompletado] [bit] DEFAULT ((0)),
+    CONSTRAINT [PK_EmpWebEmpaques] PRIMARY KEY ([IdEmpaque]),
+    CONSTRAINT [UQ_EmpWebEmpaques_Numero] UNIQUE ([NumeroEmpaque])
+);
+
+-- EMPAQUE DETALLE
+CREATE TABLE [dbo].[EmpWebEmpaqueDetalle](
+	[IdEmpaqueDetalle] [int] IDENTITY(1,1) NOT NULL,
+	[IdEmpaque] [int] NULL,
+	[NroCbt] [varchar](20) NULL,
+	[CodArt] [varchar](20) NULL,
+	[CantidadRequerida] [decimal](18, 4) NULL,
+	[CantidadPickeada] [decimal](18, 4) DEFAULT ((0)),
+	[Estado] [varchar](20) DEFAULT ('PENDIENTE'),
+    CONSTRAINT [PK_EmpWebEmpaqueDetalle] PRIMARY KEY ([IdEmpaqueDetalle])
+);
+
+-- PALLET EMPAQUE
+CREATE TABLE [dbo].[EmpWebPalletEmpaque](
+	[IdPallet] [int] IDENTITY(1,1) NOT NULL,
+	[IdEmpaque] [int] NOT NULL,
+	[NumeroPallet] [int] NOT NULL,
+	[UsuarioAsignado] [int] NULL,
+	[FechaAsignacion] [datetime] NULL,
+	[Estado] [varchar](20) DEFAULT ('PENDIENTE'),
+	[ControlEstado] [varchar](20) DEFAULT ('PENDIENTE'),
+    PRIMARY KEY ([IdPallet])
+);
+
+-- PALLET DETALLE
+CREATE TABLE [dbo].[EmpWebPalletDetalle](
+	[IdPalletDetalle] [int] IDENTITY(1,1) NOT NULL,
+	[IdPallet] [int] NOT NULL,
+	[IdEmpaqueDetalle] [int] NOT NULL,
+	[CantidadAsignada] [decimal](18, 4) NOT NULL,
+	[FechaAsignacion] [datetime] NULL,
+    PRIMARY KEY ([IdPalletDetalle])
+);
+
+-- CONTROL PALLET
+CREATE TABLE [dbo].[EmpWebControlPallet](
+	[IdControl] [int] IDENTITY(1,1) NOT NULL,
+	[IdPallet] [int] NOT NULL,
+	[IdUsuario] [int] NOT NULL,
+	[FechaControl] [datetime] NOT NULL,
+	[Estado] [varchar](20) DEFAULT ('PENDIENTE') NOT NULL,
+    CONSTRAINT [PK_ControlPallet] PRIMARY KEY ([IdControl])
+);
+
+-- CONTROL PALLET DETALLE
+CREATE TABLE [dbo].[EmpWebControlPalletDetalle](
+	[IdControlDetalle] [int] IDENTITY(1,1) NOT NULL,
+	[IdControl] [int] NOT NULL,
+	[IdPalletDetalle] [int] NOT NULL,
+	[CantidadVerificada] [decimal](18, 4) NOT NULL,
+	[FechaVerificacion] [datetime] NOT NULL,
+    CONSTRAINT [PK_ControlPalletDetalle] PRIMARY KEY ([IdControlDetalle])
+);
+
+-- PICKING LOTES
+CREATE TABLE [dbo].[EmpWebPickingLotes](
+	[IdPicking] [int] IDENTITY(1,1) NOT NULL,
+	[IdEmpaque] [int] NULL,
+	[IdEmpaqueDetalle] [int] NULL,
+	[NroOF] [varchar](20) NULL,
+	[CodArt] [varchar](20) NULL,
+	[CantidadPickeada] [decimal](18, 4) NULL,
+	[FechaPick] [datetime] DEFAULT (getdate()),
+	[UsuarioPick] [int] NULL,
+	[Estado] [varchar](20) DEFAULT ('ACTIVO'),
+	[HoraExacta] [datetime2](7) DEFAULT (getdate()),
+    CONSTRAINT [PK_PickingLotes] PRIMARY KEY ([IdPicking])
+);
+
+-- PICKING HISTORIAL
+CREATE TABLE [dbo].[EmpWebPickingLotesHistorial](
+	[IdHistorial] [int] IDENTITY(1,1) NOT NULL,
+	[IdPickingOriginal] [int] NULL,
+	[Accion] [varchar](20) NOT NULL,
+	[Motivo] [varchar](255) NULL,
+	[Usuario] [int] NULL,
+	[FechaAccion] [datetime] DEFAULT (getdate()),
+    CONSTRAINT [PK_PickingHistorial] PRIMARY KEY ([IdHistorial])
+);
+
+-- RESERVAS PENDIENTES
+CREATE TABLE [dbo].[EmpWebReservasPendientes](
+	[IdReserva] [int] IDENTITY(1,1) NOT NULL,
+	[Empresa] [varchar](10) NULL,
+	[NroCbt] [varchar](20) NULL,
+	[CodArt] [varchar](20) NULL,
+	[CantidadReservada] [decimal](18, 4) DEFAULT ((0)),
+	[Estado] [varchar](20) DEFAULT ('RESERVADO'),
+	[FechaReserva] [datetime] DEFAULT (getdate()),
+	[UsuarioReserva] [int] NULL,
+    CONSTRAINT [PK_Reservas] PRIMARY KEY ([IdReserva])
+);
+GO

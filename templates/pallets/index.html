@@ -1,0 +1,582 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4" style="color: #2c3e50;">
+        <i class="fas fa-pallet mr-2"></i>Gestión de Pallets
+    </h2>
+
+    <div class="row">
+        <!-- Panel izquierdo: Empaques -->
+        <div class="col-md-4">
+            <div class="card card-custom">
+                <div class="card-header bg-primary-custom text-white">
+                    <h5 class="mb-0"><i class="fas fa-boxes mr-2"></i>Empaques</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div id="empaques-lista" class="list-group list-group-flush" style="max-height: 500px; overflow-y: auto;">
+                        <div class="list-group-item text-center">
+                            <i class="fas fa-spinner fa-spin"></i> Cargando empaques...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel central: Pallets -->
+        <div class="col-md-4">
+            <div class="card card-custom">
+                <div class="card-header bg-success-custom text-white">
+                    <h5 class="mb-0"><i class="fas fa-pallet mr-2"></i>Pallets</h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label>Nuevo Pallet:</label>
+                        <div class="input-group">
+                            <input type="number" id="nuevo-pallet-numero" class="form-control" placeholder="N° Pallet">
+                            <div class="input-group-append">
+                                <button id="btn-crear-pallet" class="btn btn-primary-custom">
+                                    <i class="fas fa-plus"></i> Crear
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="pallets-lista" style="max-height: 400px; overflow-y: auto;">
+                        <div class="text-center text-muted">
+                            Seleccione un empaque
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel derecho: Productos a Asignar -->
+        <div class="col-md-4">
+            <div class="card card-custom">
+                <div class="card-header bg-info-custom text-white">
+                    <h5 class="mb-0"><i class="fas fa-box-open mr-2"></i>Productos a Asignar</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Resumen del pallet seleccionado -->
+                    <div id="resumen-pallet" style="display: none;">
+                        <div class="alert alert-secondary">
+                            <strong>Pallet N° <span id="pallet-numero"></span></strong><br>
+                            <div class="progress mt-1">
+                                <div id="progreso-peso" class="progress-bar bg-success" role="progressbar" style="width: 0%">0%</div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-6">
+                                    <small>Peso acumulado: <span id="peso-acumulado">0</span> kg / <span id="peso-maximo">960</span> kg</small>
+                                </div>
+                                <div class="col-6">
+                                    <small>Bultos: <span id="bultos-acumulados">0</span> blt</small>
+                                </div>
+                            </div>
+                        </div>
+                        <button id="btn-asignar-seleccionados" class="btn btn-success-custom btn-block mb-2">
+                            <i class="fas fa-check-circle mr-1"></i>Asignar Seleccionados
+                        </button>
+                    </div>
+                    
+                    <div id="productos-lista" style="max-height: 400px; overflow-y: auto;">
+                        <div class="text-center text-muted">
+                            Seleccione un pallet
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para asignar usuario -->
+<div class="modal fade" id="modalAsignarUsuario" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-info-custom text-white">
+                <h5 class="modal-title"><i class="fas fa-user mr-2"></i>Asignar Usuario a Pallet</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="usuario-select">Seleccionar Usuario:</label>
+                    <select id="usuario-select" class="form-control input-custom">
+                        <option value="">Seleccione un usuario...</option>
+                    </select>
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="asignar-todos-usuarios">
+                    <label class="form-check-label" for="asignar-todos-usuarios">
+                        Asignar a todos los pallets de este empaque
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success-custom" id="btn-confirmar-usuario">
+                    <i class="fas fa-check mr-1"></i>Asignar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.pallet-card {
+    transition: all 0.2s ease;
+}
+.pallet-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.producto-item {
+    transition: background-color 0.2s ease;
+}
+.producto-item:hover {
+    background-color: #f8f9fa;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof $ === 'undefined') {
+        console.error('jQuery no está cargado');
+        return;
+    }
+    
+    console.log('Gestión de Pallets iniciada');
+    
+    var empaqueSeleccionado = null;
+    var palletSeleccionado = null;
+    var productosSeleccionados = {};  // Objeto para almacenar selecciones
+    var pesoMaximoPallet = 960;
+    var pesoActualPallet = 0;
+    
+    // Actualizar resumen del pallet en tiempo real
+    function actualizarResumenPallet() {
+        var pesoTotal = 0;
+        var bultosTotal = 0;
+        
+        for (var id in productosSeleccionados) {
+            var prod = productosSeleccionados[id];
+            if (prod.seleccionado) {
+                var peso = parseFloat(prod.peso_seleccionado) || 0;
+                pesoTotal += peso;
+                // Contar bultos (cada producto seleccionado suma 1 bulto si tiene cantidad > 0)
+                if (prod.cantidad_seleccionada > 0) {
+                    bultosTotal += parseFloat(prod.cantidad_seleccionada) || 0;
+                }
+            }
+        }
+        
+        pesoActualPallet = pesoTotal;
+        var porcentaje = (pesoActualPallet / pesoMaximoPallet) * 100;
+        porcentaje = Math.min(porcentaje, 100);
+        
+        $('#peso-acumulado').text(pesoActualPallet.toFixed(2));
+        $('#bultos-acumulados').text(bultosTotal);
+        $('#progreso-peso').css('width', porcentaje + '%').text(Math.round(porcentaje) + '%');
+        
+        if (pesoActualPallet > pesoMaximoPallet) {
+            $('#progreso-peso').removeClass('bg-success').addClass('bg-danger');
+        } else {
+            $('#progreso-peso').removeClass('bg-danger').addClass('bg-success');
+        }
+    }
+    
+    // Cargar empaques disponibles
+    function cargarEmpaques() {
+        console.log('Cargando empaques...');
+        $('#empaques-lista').html('<div class="list-group-item text-center"><i class="fas fa-spinner fa-spin"></i> Cargando empaques...</div>');
+        
+        $.get('/gestion-pallets/empaques-disponibles')
+            .done(function(data) {
+                console.log('Empaques recibidos:', data);
+                var container = $('#empaques-lista');
+                container.empty();
+                
+                if (!data || data.length === 0) {
+                    container.html('<div class="list-group-item text-center text-muted">No hay empaques pendientes de asignación</div>');
+                    return;
+                }
+                
+                data.forEach(function(emp) {
+                    container.append(`
+                        <a href="#" class="list-group-item list-group-item-action empaque-item" data-id="${emp.id}" data-numero="${emp.numero}">
+                            <strong>${emp.numero}</strong><br>
+                            <small>${emp.cliente}</small>
+                        </a>
+                    `);
+                });
+            })
+            .fail(function(xhr) {
+                console.error('Error cargando empaques:', xhr.status);
+                $('#empaques-lista').html('<div class="list-group-item text-center text-danger">Error al cargar empaques</div>');
+            });
+    }
+    
+    // Cargar pallets de un empaque
+    function cargarPallets(id_empaque) {
+        $('#pallets-lista').html('<div class="text-center text-muted"><i class="fas fa-spinner fa-spin"></i> Cargando pallets...</div>');
+        
+        $.get(`/gestion-pallets/pallets-empaque/${id_empaque}`)
+            .done(function(data) {
+                console.log('Pallets recibidos:', data);
+                var container = $('#pallets-lista');
+                container.empty();
+                
+                if (!data || data.length === 0) {
+                    container.html('<div class="alert alert-info m-2">No hay pallets creados. Cree el primero.</div>');
+                    return;
+                }
+                
+                data.forEach(function(pal) {
+                    var pesoClase = pal.peso_total > 900 ? 'text-danger' : 'text-success';
+                    container.append(`
+                        <div class="card m-2 pallet-card ${palletSeleccionado === pal.id ? 'border-primary' : ''}" style="cursor: pointer;" data-id="${pal.id}" data-numero="${pal.numero}">
+                            <div class="card-body p-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <strong>Pallet N° ${pal.numero}</strong>
+                                    <span class="badge ${pal.estado === 'PENDIENTE' ? 'badge-warning' : 'badge-success'}">${pal.estado}</span>
+                                </div>
+                                <small>Productos: ${pal.cantidad_productos}</small><br>
+                                <small class="${pesoClase}">Peso: ${pal.peso_total.toFixed(2)} kg / 960 kg</small><br>
+                                <small>Bultos: ${pal.total_bultos} blt</small><br>
+                                <small>Usuario: ${pal.usuario_nombre}</small>
+                                <div class="mt-2">
+                                    <button class="btn btn-sm btn-info-custom btn-asignar-usuario" data-id="${pal.id}" data-numero="${pal.numero}">
+                                        <i class="fas fa-user mr-1"></i>Usuario
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `);
+                });
+                
+                // Eventos de selección de pallet
+                $('.pallet-card').off('click').on('click', function(e) {
+                    if ($(e.target).hasClass('btn-asignar-usuario')) return;
+                    $('.pallet-card').removeClass('border-primary');
+                    $(this).addClass('border-primary');
+                    palletSeleccionado = $(this).data('id');
+                    var numeroPallet = $(this).data('numero');
+                    console.log('Pallet seleccionado:', palletSeleccionado);
+                    cargarProductosParaAsignar(palletSeleccionado, numeroPallet);
+                });
+            })
+            .fail(function(xhr) {
+                console.error('Error cargando pallets:', xhr.status);
+                $('#pallets-lista').html('<div class="alert alert-danger m-2">Error al cargar pallets</div>');
+            });
+    }
+    
+    // Cargar productos para asignar al pallet (con selección múltiple)
+    function cargarProductosParaAsignar(id_empaque_detalle, numero_pallet) {
+    $('#resumen-pallet').show();
+    $('#pallet-numero').text(numero_pallet);
+    $('#productos-lista').html('<div class="list-group-item text-center"><i class="fas fa-spinner fa-spin"></i> Cargando productos...</div>');
+    
+    productosSeleccionados = {};
+    pesoActualPallet = 0;
+    actualizarResumenPallet();
+    
+    $.get(`/gestion-pallets/productos-pendientes/${empaqueSeleccionado}`)
+        .done(function(data) {
+            console.log('Productos recibidos:', data);
+            var container = $('#productos-lista');
+            container.empty();
+            
+            if (!data || data.length === 0) {
+                container.html('<div class="list-group-item text-center text-success">Todos los productos tienen pallet asignado</div>');
+                return;
+            }
+            
+            var grupos = {};
+            data.forEach(function(prod) {
+                var unidad = prod.unidad_medida || 'SIN UNIDAD';
+                if (!grupos[unidad]) grupos[unidad] = [];
+                grupos[unidad].push(prod);
+            });
+            
+            var unidadesOrdenadas = Object.keys(grupos).sort();
+            
+            unidadesOrdenadas.forEach(function(unidad) {
+                container.append(`<div class="list-group-item bg-light font-weight-bold">Unidad de Medida: ${unidad}</div>`);
+                
+                
+                
+                grupos[unidad].forEach(function(prod) {
+                    var idUnico = 'prod_' + prod.id;
+                    productosSeleccionados[idUnico] = {
+                        id: prod.id,
+                        codart: prod.codart,
+                        descripcion: prod.descripcion,
+                        cantidad_max: parseFloat(prod.cantidad_pendiente) || 0,
+                        peso_unitario: parseFloat(prod.peso_unitario) || 0,
+                        peso_total_max: parseFloat(prod.peso_total) || 0,
+                        unidad_medida: prod.unidad_medida || 'SIN UNIDAD',
+                        cantidad_seleccionada: 0,
+                        peso_seleccionado: 0,
+                        seleccionado: false
+                    };
+                    
+                    var productoHtml = `
+                        <div class="list-group-item producto-item" data-id="${prod.id}">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input chk-producto" data-id="${idUnico}">
+                                <label class="form-check-label">
+                                    <strong>${prod.codart}</strong> - ${prod.descripcion.substring(0, 50)}
+                                    <small class="text-muted">
+                                    Pendiente: ${prod.cantidad_pendiente} ${prod.unidad_medida} | 
+                                    Peso unitario: ${prod.peso_unitario.toFixed(2)} kg | 
+                                    Peso total: ${prod.peso_total.toFixed(2)} kg
+                                </small>
+                                </label>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-6">
+                                    <label class="small">Cantidad (${prod.unidad_medida}):</label>
+                                    <input type="number" class="form-control form-control-sm cant-producto" data-id="${idUnico}" 
+                                           value="0" min="0" max="${prod.cantidad_pendiente}" step="1" disabled>
+                                </div>
+                                <div class="col-6">
+                                    <label class="small">Peso (kg):</label>
+                                    <input type="text" class="form-control form-control-sm peso-producto" data-id="${idUnico}" 
+                                           value="0" readonly>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    container.append(productoHtml);
+                });
+            });
+            
+            // Vincular eventos después de crear los elementos
+            $('.chk-producto').off('change').on('change', function() {
+                var id = $(this).data('id');
+                var checked = $(this).is(':checked');
+                var $cantInput = $(`.cant-producto[data-id="${id}"]`);
+                var $pesoInput = $(`.peso-producto[data-id="${id}"]`);
+                
+                if (checked) {
+                    $cantInput.prop('disabled', false);
+                    var maxCant = productosSeleccionados[id].cantidad_max;
+                    $cantInput.val(maxCant);
+                    $cantInput.trigger('input');
+                } else {
+                    $cantInput.prop('disabled', true).val(0);
+                    $cantInput.trigger('input');
+                }
+            });
+            
+            $('.cant-producto').off('input').on('input', function() {
+                var id = $(this).data('id');
+                var cantidad = parseFloat($(this).val()) || 0;
+                var maxCant = productosSeleccionados[id].cantidad_max || 0;
+                var pesoUnitario = productosSeleccionados[id].peso_unitario || 0;
+                
+                if (cantidad > maxCant) {
+                    cantidad = maxCant;
+                    $(this).val(maxCant);
+                }
+                
+                var pesoSeleccionado = cantidad * pesoUnitario;
+                $(`.peso-producto[data-id="${id}"]`).val(pesoSeleccionado.toFixed(2));
+                productosSeleccionados[id].cantidad_seleccionada = cantidad;
+                productosSeleccionados[id].peso_seleccionado = pesoSeleccionado;
+                productosSeleccionados[id].seleccionado = cantidad > 0;
+                
+                actualizarResumenPallet();
+            });
+        })
+        .fail(function(xhr) {
+            console.error('Error cargando productos:', xhr.status);
+            $('#productos-lista').html('<div class="list-group-item text-center text-danger">Error al cargar productos</div>');
+        });
+    }
+    
+    // Evento: seleccionar empaque
+    $(document).off('click', '.empaque-item').on('click', '.empaque-item', function(e) {
+        e.preventDefault();
+        $('.empaque-item').removeClass('active');
+        $(this).addClass('active');
+        empaqueSeleccionado = $(this).data('id');
+        console.log('Empaque seleccionado:', empaqueSeleccionado);
+        
+        // Ocultar resumen y limpiar productos
+        $('#resumen-pallet').hide();
+        $('#productos-lista').html('<div class="list-group-item text-center">Seleccione un pallet</div>');
+        
+        cargarPallets(empaqueSeleccionado);
+    });
+    
+    // Evento: crear pallet
+    $('#btn-crear-pallet').off('click').on('click', function() {
+        if (!empaqueSeleccionado) {
+            alert('Primero seleccione un empaque');
+            return;
+        }
+        
+        var numero = $('#nuevo-pallet-numero').val();
+        if (!numero) {
+            alert('Ingrese un número de pallet');
+            return;
+        }
+        
+        $.ajax({
+            url: '/gestion-pallets/crear-pallet',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                id_empaque: empaqueSeleccionado,
+                numero_pallet: parseInt(numero)
+            }),
+            success: function(data) {
+                if (data.success) {
+                    $('#nuevo-pallet-numero').val('');
+                    cargarPallets(empaqueSeleccionado);
+                    alert(`Pallet N° ${data.numero} creado exitosamente`);
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            },
+            error: function(xhr) {
+                alert('Error de comunicación: ' + xhr.status);
+            }
+        });
+    });
+    
+    // Evento: asignar seleccionados
+    $('#btn-asignar-seleccionados').off('click').on('click', function() {
+        console.log('Click en asignar seleccionados');
+        
+        if (!palletSeleccionado) {
+            alert('Primero seleccione un pallet');
+            return;
+        }
+        
+        var itemsAsignar = [];
+        for (var id in productosSeleccionados) {
+            var prod = productosSeleccionados[id];
+            if (prod.seleccionado && prod.cantidad_seleccionada > 0) {
+                itemsAsignar.push({
+                    id_empaque_detalle: prod.id,
+                    cantidad: prod.cantidad_seleccionada
+                });
+            }
+        }
+        
+        console.log('Items a asignar:', itemsAsignar);
+        
+        if (itemsAsignar.length === 0) {
+            alert('No hay productos seleccionados');
+            return;
+        }
+        
+        // Verificar peso total
+        if (pesoActualPallet > pesoMaximoPallet) {
+            if (!confirm('El peso total excede los 960 kg. ¿Desea continuar de todos modos?')) {
+                return;
+            }
+        }
+        
+        $.ajax({
+            url: '/gestion-pallets/asignar-multiple',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                id_pallet: palletSeleccionado,
+                productos: itemsAsignar
+            }),
+            success: function(data) {
+                console.log('Respuesta:', data);
+                if (data.success) {
+                    alert('Productos asignados exitosamente');
+                    // Recargar todo
+                    cargarPallets(empaqueSeleccionado);
+                    if (palletSeleccionado) {
+                        cargarProductosParaAsignar(palletSeleccionado, $('#pallet-numero').text());
+                    }
+                    cargarEmpaques();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            },
+            error: function(xhr) {
+                console.error('Error:', xhr.status, xhr.responseText);
+                alert('Error de comunicación: ' + xhr.status);
+            }
+        });
+    });
+    
+    // Evento: asignar usuario
+    $(document).off('click', '.btn-asignar-usuario').on('click', '.btn-asignar-usuario', function(e) {
+        e.stopPropagation();
+        var palletId = $(this).data('id');
+        var palletNumero = $(this).data('numero');
+        
+        $.get('/gestion-pallets/usuarios')
+            .done(function(data) {
+                var select = $('#usuario-select');
+                select.empty();
+                select.append('<option value="">Seleccione un usuario...</option>');
+                if (data && data.length > 0) {
+                    data.forEach(function(user) {
+                        select.append(`<option value="${user.id}">${user.nombre}</option>`);
+                    });
+                } else {
+                    select.append('<option value="" disabled>No hay usuarios disponibles</option>');
+                }
+                
+                $('#modalAsignarUsuario').data('pallet-id', palletId);
+                $('#modalAsignarUsuario').data('pallet-numero', palletNumero);
+                $('#modalAsignarUsuario').modal('show');
+            })
+            .fail(function() {
+                alert('Error al cargar usuarios');
+            });
+    });
+    
+    // Evento: confirmar usuario
+    $('#btn-confirmar-usuario').off('click').on('click', function() {
+        var usuarioId = $('#usuario-select').val();
+        var asignarTodos = $('#asignar-todos-usuarios').is(':checked');
+        var palletId = $('#modalAsignarUsuario').data('pallet-id');
+        
+        if (!usuarioId) {
+            alert('Seleccione un usuario');
+            return;
+        }
+        
+        $.ajax({
+            url: '/gestion-pallets/asignar-usuario',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                id_pallet: palletId,
+                id_empaque: empaqueSeleccionado,
+                usuario_id: parseInt(usuarioId),
+                asignar_todos: asignarTodos
+            }),
+            success: function(data) {
+                if (data.success) {
+                    $('#modalAsignarUsuario').modal('hide');
+                    cargarPallets(empaqueSeleccionado);
+                    alert('Usuario asignado exitosamente');
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            },
+            error: function(xhr) {
+                alert('Error de comunicación: ' + xhr.status);
+            }
+        });
+    });
+    
+    // Inicializar
+    cargarEmpaques();
+});
+</script>
+{% endblock %}

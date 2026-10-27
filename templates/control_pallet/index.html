@@ -1,0 +1,445 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4" style="color: #2c3e50;">
+        <i class="fas fa-check-double mr-2"></i>Control de Pallet
+    </h2>
+
+    <div class="row">
+        <!-- Panel izquierdo: Empaques -->
+        <div class="col-md-4">
+            <div class="card card-custom">
+                <div class="card-header bg-primary-custom text-white">
+                    <h5 class="mb-0"><i class="fas fa-boxes mr-2"></i>Empaques Pendientes</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div id="empaques-lista" class="list-group list-group-flush" style="max-height: 400px; overflow-y: auto;">
+                        <div class="list-group-item text-center">
+                            <i class="fas fa-spinner fa-spin"></i> Cargando empaques...
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer" id="cerrar-empaque-container" style="display: none;">
+                    <button id="btn-cerrar-empaque" class="btn btn-success-custom btn-block">
+                        <i class="fas fa-check-circle mr-1"></i> Cerrar Empaque
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel central: Pallets -->
+        <div class="col-md-4">
+            <div class="card card-custom">
+                <div class="card-header bg-success-custom text-white">
+                    <h5 class="mb-0"><i class="fas fa-pallet mr-2"></i>Pallets</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div id="pallets-lista" class="list-group list-group-flush" style="max-height: 500px; overflow-y: auto;">
+                        <div class="list-group-item text-center">
+                            Seleccione un empaque
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel derecho: Productos -->
+        <div class="col-md-4">
+            <div class="card card-custom">
+                <div class="card-header bg-info-custom text-white">
+                    <h5 class="mb-0"><i class="fas fa-box-open mr-2"></i>Productos a Verificar</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div id="productos-lista" class="list-group list-group-flush" style="max-height: 500px; overflow-y: auto;">
+                        <div class="list-group-item text-center">
+                            Seleccione un pallet
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.verificado-true {
+    background-color: #d4edda !important;
+    border-left: 4px solid #28a745 !important;
+}
+.verificado-false {
+    background-color: #fff3cd !important;
+    border-left: 4px solid #ffc107 !important;
+}
+.pallet-completado {
+    background-color: #d4edda !important;
+}
+.pallet-item.active {
+    border-left: 4px solid #007bff;
+    background-color: #e3f2fd;
+}
+.empaque-item.active {
+    border-left: 4px solid #007bff;
+    background-color: #e3f2fd;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof $ === 'undefined') {
+        console.error('jQuery no está cargado');
+        return;
+    }
+    
+    console.log('Control de Pallet iniciado');
+    
+    var empaqueSeleccionado = null;
+    var palletSeleccionado = null;
+    var empaqueData = null;
+    
+    // Función para actualizar el estado del botón cerrar
+    function actualizarBotonCerrar() {
+        if (empaqueData && empaqueData.verificados >= empaqueData.total_pallets && empaqueData.total_pallets > 0) {
+            $('#cerrar-empaque-container').show();
+        } else {
+            $('#cerrar-empaque-container').hide();
+        }
+    }
+    
+    // Cargar empaques disponibles
+    function cargarEmpaques() {
+        $('#empaques-lista').html('<div class="list-group-item text-center"><i class="fas fa-spinner fa-spin"></i> Cargando empaques...</div>');
+        
+        $.get('/control-pallet/empaques-disponibles')
+            .done(function(data) {
+                console.log('Empaques recibidos:', data);
+                var container = $('#empaques-lista');
+                container.empty();
+                
+                if (!data || data.length === 0) {
+                    container.html('<div class="list-group-item text-center text-muted">No hay empaques pendientes de control</div>');
+                    $('#cerrar-empaque-container').hide();
+                    return;
+                }
+                
+                data.forEach(function(emp) {
+                    var progreso = Math.round((emp.verificados / emp.total_pallets) * 100);
+                    var todosVerificados = (emp.verificados >= emp.total_pallets && emp.total_pallets > 0);
+                    
+                    container.append(`
+                        <a href="#" class="list-group-item list-group-item-action empaque-item" 
+                           data-id="${emp.id}" 
+                           data-numero="${emp.numero}"
+                           data-total-pallets="${emp.total_pallets}"
+                           data-verificados="${emp.verificados}"
+                           data-todos-verificados="${todosVerificados}">
+                            <strong>${emp.numero}</strong><br>
+                            <small>${emp.cliente}</small><br>
+                            <div class="progress mt-1" style="height: 5px;">
+                                <div class="progress-bar bg-success" style="width: ${progreso}%"></div>
+                            </div>
+                            <small class="text-muted">Pallets: ${emp.verificados}/${emp.total_pallets}</small>
+                            ${todosVerificados ? '<span class="badge badge-success float-right">Completo</span>' : ''}
+                        </a>
+                    `);
+                });
+            })
+            .fail(function(xhr) {
+                console.error('Error cargando empaques:', xhr.status);
+                $('#empaques-lista').html('<div class="list-group-item text-center text-danger">Error al cargar empaques</div>');
+            });
+    }
+    
+    // Cargar pallets de un empaque
+    function cargarPallets(id_empaque) {
+        $('#pallets-lista').html('<div class="list-group-item text-center"><i class="fas fa-spinner fa-spin"></i> Cargando pallets...</div>');
+        $('#productos-lista').html('<div class="list-group-item text-center">Seleccione un pallet</div>');
+        palletSeleccionado = null;
+        
+        $.get(`/control-pallet/pallets-empaque/${id_empaque}`)
+            .done(function(data) {
+                console.log('Pallets recibidos:', data);
+                var container = $('#pallets-lista');
+                container.empty();
+                
+                if (!data || data.length === 0) {
+                    container.html('<div class="list-group-item text-center text-muted">No hay pallets pendientes</div>');
+                    return;
+                }
+                
+                data.forEach(function(pal) {
+                    var completado = pal.control_estado === 'VERIFICADO';
+                    var clase = completado ? 'pallet-completado' : '';
+                    var progreso = pal.total_productos > 0 ? Math.round((pal.productos_verificados / pal.total_productos) * 100) : 0;
+                    
+                    container.append(`
+                        <a href="#" class="list-group-item list-group-item-action pallet-item ${clase}" 
+                        data-id="${pal.id}" data-numero="${pal.numero}" data-control="${pal.control_estado}"
+                        data-total="${pal.total_productos}" data-verificados="${pal.productos_verificados}">
+                            <strong>Pallet N° ${pal.numero}</strong>
+                            <div class="progress mt-1" style="height: 5px;">
+                                <div class="progress-bar bg-${completado ? 'success' : 'warning'}" style="width: ${progreso}%"></div>
+                            </div>
+                            <div class="row mt-1">
+                                <div class="col-6">
+                                    <small class="text-muted">Prod: ${pal.productos_verificados}/${pal.total_productos}</small>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted">Bultos: ${pal.total_bultos || 0}</small>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-12">
+                                    <small class="text-muted">Peso: ${pal.peso_total?.toFixed(2) || 0} / 960 kg</small>
+                                </div>
+                            </div>
+                            ${completado ? '<span class="badge badge-success float-right">Verificado</span>' : ''}
+                        </a>
+                    `);
+                });
+            })
+            .fail(function(xhr) {
+                console.error('Error cargando pallets:', xhr.status);
+                $('#pallets-lista').html('<div class="list-group-item text-center text-danger">Error al cargar pallets</div>');
+            });
+    }
+    
+    // Cargar productos de un pallet
+    function cargarProductos(id_pallet) {
+        console.log('Cargando productos del pallet:', id_pallet);
+        $('#productos-lista').html('<div class="list-group-item text-center"><i class="fas fa-spinner fa-spin"></i> Cargando productos...</div>');
+        
+        $.get(`/control-pallet/productos-pallet/${id_pallet}`)
+            .done(function(data) {
+                console.log('Productos recibidos:', data);
+                var container = $('#productos-lista');
+                container.empty();
+                
+                if (!data || data.length === 0) {
+                    container.html('<div class="list-group-item text-center text-success">Todos los productos están verificados</div>');
+                    return;
+                }
+                
+                data.forEach(function(prod) {
+                    var clase = prod.verificado ? 'verificado-true' : 'verificado-false';
+                    var estadoControl = prod.verificado ? '✅ Verificado' : '⏳ Pendiente';
+                    
+                    container.append(`
+                        <div class="list-group-item producto-item ${clase}" data-codart="${prod.codart}">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>${prod.codart}</strong><br>
+                                    <small>${prod.descripcion.substring(0, 50)}</small><br>
+                                    <small>
+                                        Asignado: ${prod.cantidad_asignada} | 
+                                        Pickeado: ${prod.cantidad_pickeada} | 
+                                        Pendiente: ${prod.cantidad_pendiente}
+                                        ${prod.cantidad_pedidos > 1 ? ` | <span class="badge badge-info">${prod.cantidad_pedidos} pedidos</span>` : ''}
+                                    </small>
+                                </div>
+                                <div>
+                                    <span class="badge ${prod.verificado ? 'badge-success' : 'badge-warning'}">${estadoControl}</span>
+                                </div>
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input chk-verificar" 
+                                        data-codart="${prod.codart}"
+                                        ${prod.verificado ? 'checked' : ''}>
+                                </div>
+                            </div>
+                        </div>
+                    `);
+                });
+            })
+            .fail(function(xhr) {
+                console.error('Error cargando productos:', xhr.status);
+                $('#productos-lista').html('<div class="list-group-item text-center text-danger">Error al cargar productos</div>');
+            });
+    }
+    
+    // Evento: seleccionar empaque
+    $(document).on('click', '.empaque-item', function(e) {
+        e.preventDefault();
+        $('.empaque-item').removeClass('active');
+        $(this).addClass('active');
+        
+        empaqueSeleccionado = $(this).data('id');
+        empaqueData = {
+            id: $(this).data('id'),
+            numero: $(this).data('numero'),
+            total_pallets: parseInt($(this).data('total-pallets')),
+            verificados: parseInt($(this).data('verificados'))
+        };
+        
+        console.log('Empaque seleccionado:', empaqueSeleccionado, empaqueData);
+        
+        actualizarBotonCerrar();
+        cargarPallets(empaqueSeleccionado);
+    });
+    
+    // Evento: seleccionar pallet
+    $(document).on('click', '.pallet-item', function(e) {
+        e.preventDefault();
+        
+        var controlEstado = $(this).data('control');
+        if (controlEstado === 'VERIFICADO') {
+            alert('Este pallet ya fue verificado completamente');
+            return;
+        }
+        
+        $('.pallet-item').removeClass('active');
+        $(this).addClass('active');
+        
+        palletSeleccionado = $(this).data('id');
+        console.log('Pallet seleccionado:', palletSeleccionado);
+        
+        cargarProductos(palletSeleccionado);
+    });
+    
+        // Evento: verificar producto (MODIFICADO para no recargar todo)
+    $(document).on('change', '.chk-verificar', function() {
+        if (!palletSeleccionado) {
+            alert('Primero seleccione un pallet');
+            $(this).prop('checked', false);
+            return;
+        }
+        
+        var idPalletDetalle = $(this).data('id-pallet-detalle');
+        var verificado = $(this).is(':checked');
+        var itemDiv = $(this).closest('.producto-item');
+        var checkbox = $(this);
+        var codart = itemDiv.data('codart');
+        
+        console.log('Verificando producto - codart:', codart, 'verificado:', verificado);
+        
+        $.ajax({
+            url: '/control-pallet/verificar-producto',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                id_pallet: palletSeleccionado,
+                codart: codart,
+                verificado: verificado
+            }),
+            success: function(data) {
+                if (data.success) {
+                    if (verificado) {
+                        itemDiv.removeClass('verificado-false').addClass('verificado-true');
+                    } else {
+                        itemDiv.removeClass('verificado-true').addClass('verificado-false');
+                    }
+                    
+                    // Solo actualizar el progreso del pallet en la lista de pallets
+                    actualizarProgresoPallet(palletSeleccionado);
+                    actualizarProgresoEmpaque();
+                    
+                    if (data.pallet_completado) {
+                        alert('¡Pallet completado! Todos los productos fueron verificados.');
+                        // Actualizar el estado visual del pallet en la lista
+                        actualizarEstadoPallet(palletSeleccionado);
+                    }
+                } else {
+                    alert('Error: ' + data.error);
+                    checkbox.prop('checked', !verificado);
+                }
+            },
+            error: function(xhr) {
+                console.error('Error:', xhr.status);
+                alert('Error de comunicación');
+                checkbox.prop('checked', !verificado);
+            }
+        });
+    });
+
+    // Función para actualizar el progreso de un pallet sin recargar todo
+    function actualizarProgresoPallet(id_pallet) {
+        $.get(`/control-pallet/pallets-empaque/${empaqueSeleccionado}`)
+            .done(function(data) {
+                var pallet = data.find(p => p.id == id_pallet);
+                if (pallet) {
+                    var progreso = pallet.total_productos > 0 ? Math.round((pallet.productos_verificados / pallet.total_productos) * 100) : 0;
+                    var $palletItem = $(`.pallet-item[data-id="${id_pallet}"]`);
+                    $palletItem.find('.progress-bar').css('width', progreso + '%');
+                    $palletItem.find('.text-muted').html(`Productos: ${pallet.productos_verificados}/${pallet.total_productos}`);
+                    if (pallet.productos_verificados >= pallet.total_productos) {
+                        $palletItem.addClass('pallet-completado');
+                        $palletItem.find('.badge').removeClass('badge-warning').addClass('badge-success').text('Verificado');
+                    }
+                }
+            });
+    }
+
+    // Función para actualizar el progreso del empaque
+    function actualizarProgresoEmpaque() {
+        $.get('/control-pallet/empaques-disponibles')
+            .done(function(data) {
+                var empaque = data.find(e => e.id == empaqueSeleccionado);
+                if (empaque) {
+                    var $empaqueItem = $(`.empaque-item[data-id="${empaqueSeleccionado}"]`);
+                    var progreso = Math.round((empaque.verificados / empaque.total_pallets) * 100);
+                    $empaqueItem.find('.progress-bar').css('width', progreso + '%');
+                    $empaqueItem.find('.text-muted').html(`Pallets: ${empaque.verificados}/${empaque.total_pallets}`);
+                    if (empaque.verificados >= empaque.total_pallets) {
+                        $('#cerrar-empaque-container').show();
+                    } else {
+                        $('#cerrar-empaque-container').hide();
+                    }
+                }
+            });
+    }
+
+    // Función para actualizar estado visual del pallet
+    function actualizarEstadoPallet(id_pallet) {
+        var $palletItem = $(`.pallet-item[data-id="${id_pallet}"]`);
+        $palletItem.addClass('pallet-completado');
+        $palletItem.find('.badge').removeClass('badge-warning').addClass('badge-success').text('Verificado');
+    }
+    
+    // Evento: cerrar empaque
+    $('#btn-cerrar-empaque').on('click', function() {
+        if (!empaqueSeleccionado) {
+            alert('Primero seleccione un empaque');
+            return;
+        }
+        
+        if (!confirm('¿Está seguro que desea cerrar este empaque? Una vez cerrado, no se podrán hacer más cambios.')) {
+            return;
+        }
+        
+        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i>Cerrando...');
+        
+        $.ajax({
+            url: '/control-pallet/cerrar-empaque',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                id_empaque: empaqueSeleccionado
+            }),
+            success: function(data) {
+                if (data.success) {
+                    alert('Empaque cerrado exitosamente');
+                    $('#cerrar-empaque-container').hide();
+                    cargarEmpaques();
+                    $('#pallets-lista').html('<div class="list-group-item text-center">Seleccione un empaque</div>');
+                    $('#productos-lista').html('<div class="list-group-item text-center">Seleccione un pallet</div>');
+                    empaqueSeleccionado = null;
+                    palletSeleccionado = null;
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            },
+            error: function() {
+                alert('Error de comunicación');
+            },
+            complete: function() {
+                $(this).prop('disabled', false).html('<i class="fas fa-check-circle mr-1"></i> Cerrar Empaque');
+            }
+        });
+    });
+    
+    // Inicializar
+    cargarEmpaques();
+});
+</script>
+{% endblock %}

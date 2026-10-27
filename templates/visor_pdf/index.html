@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4" style="color: #2c3e50;">
+        <i class="fas fa-file-pdf mr-2"></i>Visor de Lotes
+    </h2>
+
+    <div class="card card-custom">
+        <div class="card-header bg-primary-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-search mr-2"></i>Buscar PDF</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="form-group">
+                        <label for="filtro-pdf">Buscar por nombre (contiene):</label>
+                        <input type="text" id="filtro-pdf" class="form-control input-custom" 
+                               placeholder="Ingrese el nombre del archivo...">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label>&nbsp;</label>
+                        <div>
+                            <button id="btn-buscar" class="btn btn-primary-custom">
+                                <i class="fas fa-search mr-1"></i>Buscar
+                            </button>
+                            <button id="btn-limpiar" class="btn btn-secondary">
+                                <i class="fas fa-eraser mr-1"></i>Limpiar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card card-custom mt-3">
+        <div class="card-header bg-success-custom text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-list mr-2"></i>Resultados</h5>
+            <span id="total-resultados" class="badge badge-light">0 archivos</span>
+        </div>
+        <div class="card-body">
+            <div id="resultados-container" style="max-height: 500px; overflow-y: auto;">
+                <div class="text-center text-muted">
+                    <i class="fas fa-info-circle mr-2"></i> Ingrese un filtro y presione Buscar
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para visualizar PDF -->
+<div class="modal fade" id="modalVisorPDF" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-info-custom text-white">
+                <h5 class="modal-title"><i class="fas fa-file-pdf mr-2"></i><span id="modal-pdf-titulo">PDF</span></h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" style="height: 80vh; padding: 0;">
+                <iframe id="visor-pdf-iframe" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                <a id="btn-descargar-pdf" href="#" class="btn btn-primary-custom" target="_blank">
+                    <i class="fas fa-download mr-1"></i>Descargar
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.resultado-item {
+    transition: background-color 0.2s ease;
+}
+.resultado-item:hover {
+    background-color: #f8f9fa;
+}
+.carpeta-icon {
+    color: #f39c12;
+}
+.pdf-icon {
+    color: #e74c3c;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof $ === 'undefined') {
+        console.error('jQuery no está cargado');
+        return;
+    }
+    
+    console.log('Visor PDF iniciado');
+    
+    function buscar() {
+        var filtro = $('#filtro-pdf').val().trim();
+        
+        if (!filtro) {
+            alert('Ingrese un término de búsqueda');
+            return;
+        }
+        
+        $('#resultados-container').html('<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Buscando archivos...</div>');
+        $('#total-resultados').text('Buscando...');
+        
+        $.get('/visor-pdf/buscar', { filtro: filtro })
+            .done(function(data) {
+                mostrarResultados(data.archivos);
+            })
+            .fail(function() {
+                $('#resultados-container').html('<div class="text-center text-danger">Error al buscar archivos</div>');
+                $('#total-resultados').text('Error');
+            });
+    }
+    
+    function mostrarResultados(archivos) {
+        var container = $('#resultados-container');
+        container.empty();
+        
+        if (!archivos || archivos.length === 0) {
+            container.html('<div class="text-center text-muted">No se encontraron archivos PDF</div>');
+            $('#total-resultados').text('0 archivos');
+            return;
+        }
+        
+        $('#total-resultados').text(archivos.length + ' archivos');
+        
+        var html = '<div class="list-group">';
+        archivos.forEach(function(archivo) {
+            var icono = archivo.es_carpeta ? '<i class="fas fa-folder carpeta-icon mr-2"></i>' : '<i class="fas fa-file-pdf pdf-icon mr-2"></i>';
+            var clase = archivo.es_carpeta ? 'carpeta-item' : 'pdf-item';
+            
+            html += `
+                <div class="list-group-item resultado-item ${clase}" data-ruta="${archivo.ruta}" data-es-carpeta="${archivo.es_carpeta}">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            ${icono}
+                            <strong>${archivo.nombre}</strong>
+                            ${!archivo.es_carpeta ? `<br><small class="text-muted">${archivo.carpeta}</small>` : ''}
+                        </div>
+                        ${!archivo.es_carpeta ? `
+                        <button class="btn btn-sm btn-info-custom btn-ver-pdf" data-ruta="${archivo.ruta}" data-nombre="${archivo.nombre}">
+                            <i class="fas fa-eye mr-1"></i>Ver
+                        </button>` : ''}
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        container.html(html);
+    }
+    
+    // Evento: Buscar
+    $('#btn-buscar').on('click', buscar);
+    
+    // Evento: Limpiar
+    $('#btn-limpiar').on('click', function() {
+        $('#filtro-pdf').val('');
+        $('#resultados-container').html('<div class="text-center text-muted">Ingrese un filtro y presione Buscar</div>');
+        $('#total-resultados').text('0 archivos');
+    });
+    
+    // Evento: Enter en el campo de búsqueda
+    $('#filtro-pdf').on('keypress', function(e) {
+        if (e.which === 13) {
+            buscar();
+        }
+    });
+    
+    // Evento: Ver PDF
+    $(document).on('click', '.btn-ver-pdf', function() {
+        var ruta = $(this).data('ruta');
+        var nombre = $(this).data('nombre');
+        
+        $('#modal-pdf-titulo').text(nombre);
+        $('#visor-pdf-iframe').attr('src', '/visor-pdf/ver/' + encodeURIComponent(ruta));
+        $('#btn-descargar-pdf').attr('href', '/visor-pdf/ver/' + encodeURIComponent(ruta));
+        $('#modalVisorPDF').modal('show');
+    });
+    
+    // Limpiar iframe al cerrar modal
+    $('#modalVisorPDF').on('hidden.bs.modal', function() {
+        $('#visor-pdf-iframe').attr('src', '');
+    });
+});
+</script>
+{% endblock %}

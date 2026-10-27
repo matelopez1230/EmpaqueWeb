@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4" style="color: #2c3e50;">
+        <i class="fas fa-calendar-alt mr-2"></i>Reporte de Vencimientos
+    </h2>
+
+    <!-- Filtros -->
+    <div class="card card-custom mb-4">
+        <div class="card-header bg-primary-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-filter mr-2"></i>Filtros</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="filtro-nro-of" class="font-weight-bold">N° Lote (OF):</label>
+                        <input type="text" id="filtro-nro-of" class="form-control input-custom" placeholder="Buscar por lote...">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="filtro-codart" class="font-weight-bold">Artículo:</label>
+                        <input type="text" id="filtro-codart" class="form-control input-custom" placeholder="Buscar por artículo...">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="filtro-desart" class="font-weight-bold">Descripción:</label>
+                        <input type="text" id="filtro-desart" class="form-control input-custom" placeholder="Buscar por descripción...">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="filtro-grovenc" class="font-weight-bold">Grupo Vencimiento:</label>
+                        <select id="filtro-grovenc" class="form-control input-custom" style="height: 45px; padding: 8px 12px; font-size: 1rem;">
+                            <option value="">Todos</option>
+                            <option value="3 MESES">3 MESES</option>
+                            <option value="ENTRE 3 Y 6 MESES">ENTRE 3 Y 6 MESES</option>
+                            <option value="MAYOR 6 MESES">MAYOR 6 MESES</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <label for="filtro-dias" class="font-weight-bold">Días Restantes ≤:</label>
+                        <input type="number" id="filtro-dias" class="form-control input-custom" placeholder="Ej: 30" min="0">
+                    </div>
+                </div>
+                <div class="col-md-9 d-flex align-items-end">
+                    <button id="btn-aplicar-filtros" class="btn btn-primary-custom mr-2">
+                        <i class="fas fa-search mr-1"></i>Aplicar Filtros
+                    </button>
+                    <button id="btn-limpiar-filtros" class="btn btn-secondary mr-2">
+                        <i class="fas fa-eraser mr-1"></i>Limpiar
+                    </button>
+                    <button id="btn-generar-pdf" class="btn btn-danger-custom">
+                        <i class="fas fa-file-pdf mr-1"></i>Generar PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de resultados -->
+    <div class="card card-custom">
+        <div class="card-header bg-success-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-list mr-2"></i>Resultados</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                <table class="table table-striped table-bordered table-hover" id="tabla-vencimientos">
+                    <thead>
+                        <tr>
+                            <th>N° Lote</th>
+                            <th>Artículo</th>
+                            <th>Descripción</th>
+                            <th>Fecha OF</th>
+                            <th>Días Venc.</th>
+                            <th>Fecha Venc.</th>
+                            <th class="text-right">Stock</th>
+                            <th class="text-right">Días Rest.</th>
+                            <th>Grupo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-body">
+                        <tr>
+                            <td colspan="9" class="text-center py-4">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>Cargando datos...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer">
+                <span id="contador-registros" class="badge badge-info-custom p-2">0 registros</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .vencido { background-color: #f8d7da !important; }
+    .por-vencer { background-color: #fff3cd !important; }
+    .normal { background-color: #d4edda !important; }
+    .table tbody tr:hover { opacity: 0.8; cursor: pointer; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    console.log('Reporte de Vencimientos iniciado');
+    
+    var datosOriginales = [];
+    
+    function cargarDatos() {
+        $('#tabla-body').html('<tr><td colspan="9" class="text-center py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Cargando datos...</td></tr>');
+        
+        // Construir parámetros
+        var params = {
+            nro_of: $('#filtro-nro-of').val(),
+            codart: $('#filtro-codart').val(),
+            desart: $('#filtro-desart').val(),
+            grovenc: $('#filtro-grovenc').val(),
+            dias_restantes: $('#filtro-dias').val()
+        };
+        
+        $.get('/reportes-vencimientos/datos', params)
+            .done(function(data) {
+                datosOriginales = data;
+                mostrarDatos(data);
+            })
+            .fail(function(xhr) {
+                console.error('Error:', xhr.status);
+                $('#tabla-body').html('<tr><td colspan="9" class="text-center text-danger py-4">Error al cargar datos</td></tr>');
+            });
+    }
+    
+    function mostrarDatos(data) {
+        var tbody = $('#tabla-body');
+        tbody.empty();
+        
+        if (!data || data.length === 0) {
+            tbody.html('<tr><td colspan="9" class="text-center text-muted py-4">No se encontraron resultados</td></tr>');
+            $('#contador-registros').text('0 registros');
+            return;
+        }
+        
+        data.forEach(function(item) {
+            // Determinar clase según días restantes
+            var dias = parseInt(item.diasRestantes) || 999;
+            var clase = 'normal';
+            if (dias < 0) clase = 'vencido';
+            else if (dias <= 30) clase = 'por-vencer';
+            
+            tbody.append(`
+                <tr class="${clase}">
+                    <td><strong>${item.NroOF}</strong></td>
+                    <td>${item.codart}</td>
+                    <td>${item.DesArt}</td>
+                    <td>${item.fecof}</td>
+                    <td>${item.diasvencim}</td>
+                    <td>${item.FechVenc}</td>
+                    <td class="text-right">${item.StockTeorico}</td>
+                    <td class="text-right"><strong>${item.diasRestantes}</strong></td>
+                    <td>${item.grovenc || '-'}</td>
+                </tr>
+            `);
+        });
+        
+        $('#contador-registros').text(data.length + ' registros');
+    }
+    
+    function aplicarFiltros() {
+        var params = {
+            nro_of: $('#filtro-nro-of').val(),
+            codart: $('#filtro-codart').val(),
+            desart: $('#filtro-desart').val(),
+            grovenc: $('#filtro-grovenc').val(),
+            dias_restantes: $('#filtro-dias').val()
+        };
+        
+        $.get('/reportes-vencimientos/datos', params)
+            .done(function(data) {
+                mostrarDatos(data);
+            })
+            .fail(function() {
+                alert('Error al aplicar filtros');
+            });
+    }
+    
+    function limpiarFiltros() {
+        $('#filtro-nro-of').val('');
+        $('#filtro-codart').val('');
+        $('#filtro-desart').val('');
+        $('#filtro-grovenc').val('');
+        $('#filtro-dias').val('');
+        cargarDatos();
+    }
+    
+    function generarPDF() {
+        var params = {
+            nro_of: $('#filtro-nro-of').val(),
+            codart: $('#filtro-codart').val(),
+            desart: $('#filtro-desart').val(),
+            grovenc: $('#filtro-grovenc').val(),
+            dias_restantes: $('#filtro-dias').val()
+        };
+        
+        var url = '/reportes-vencimientos/pdf?' + $.param(params);
+        window.open(url, '_blank');
+    }
+    
+    // Eventos
+    $('#btn-aplicar-filtros').on('click', aplicarFiltros);
+    $('#btn-limpiar-filtros').on('click', limpiarFiltros);
+    $('#btn-generar-pdf').on('click', generarPDF);
+    
+    // Enter en los campos de filtro
+    $('#filtro-nro-of, #filtro-codart, #filtro-desart, #filtro-dias').on('keypress', function(e) {
+        if (e.which === 13) {
+            aplicarFiltros();
+        }
+    });
+    
+    // Cargar datos iniciales
+    cargarDatos();
+});
+</script>
+{% endblock %}

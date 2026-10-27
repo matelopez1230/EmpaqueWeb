@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4" style="color: #2c3e50;">
+        <i class="fas fa-undo mr-2"></i>Deshacer Pickeo
+    </h2>
+
+    <div class="card card-custom">
+        <div class="card-header bg-warning-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-search mr-2"></i>Buscar Pickeo</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group">
+                        <label for="buscar-empaque">Número de Empaque:</label>
+                        <input type="text" id="buscar-empaque" class="form-control input-custom" placeholder="Ej: EMP-20260413-001">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <label>&nbsp;</label>
+                        <button id="btn-buscar" class="btn btn-primary-custom btn-block">
+                            <i class="fas fa-search mr-1"></i>Buscar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card card-custom mt-3">
+        <div class="card-header bg-info-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-list mr-2"></i>Pickeos Registrados</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-custom" id="tabla-picks">
+                    <thead>
+                        <tr>
+                            <th>N° Empaque</th>
+                            <th>Artículo</th>
+                            <th>Descripción</th>
+                            <th>Lote/OF</th>
+                            <th>Cantidad</th>
+                            <th>Fecha Pick</th>
+                            <th>Usuario</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-picks">
+                        <tr>
+                            <td colspan="8" class="text-center">
+                                Ingrese un número de empaque para buscar
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para confirmar deshacer -->
+<div class="modal fade" id="modalConfirmar" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning-custom text-white">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle mr-2"></i>Confirmar Deshacer Pickeo</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <strong>¿Está seguro que desea deshacer este pickeo?</strong><br>
+                    Se devolverá el stock al lote y se eliminará el registro.
+                </div>
+                <div class="form-group">
+                    <label for="motivo">Motivo (opcional):</label>
+                    <textarea id="motivo" class="form-control" rows="2" placeholder="Ingrese el motivo..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger-custom" id="btn-confirmar">
+                    <i class="fas fa-undo mr-1"></i>Deshacer Pickeo
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof $ === 'undefined') {
+        console.error('jQuery no está cargado');
+        return;
+    }
+    
+    console.log('Deshacer Pickeo iniciado');
+    
+    var pickSeleccionado = null;
+    
+    // Buscar picks
+    $('#btn-buscar').on('click', function() {
+        var empaque = $('#buscar-empaque').val().trim();
+        if (!empaque) {
+            alert('Ingrese un número de empaque');
+            return;
+        }
+        
+        console.log('Buscando empaque:', empaque);
+        
+        $('#lista-picks').html('<tr><td colspan="8" class="text-center"><i class="fas fa-spinner fa-spin"></i> Buscando...</td></tr>');
+        
+        $.get('/deshacer-pickeo/buscar', { empaque: empaque })
+            .done(function(data) {
+                console.log('Respuesta:', data);
+                var tbody = $('#lista-picks');
+                tbody.empty();
+                
+                if (!data || data.length === 0) {
+                    tbody.append('<tr><td colspan="8" class="text-center">No se encontraron pickeos para este empaque</td></tr>');
+                    return;
+                }
+                
+                data.forEach(function(pick) {
+                    tbody.append(`
+                        <tr>
+                            <td><strong>${pick.numero_empaque}</strong></td>
+                            <td>${pick.codart}</td>
+                            <td>${pick.descripcion}</td>
+                            <td>${pick.nro_of}</td>
+                            <td class="text-right">${pick.cantidad}</td>
+                            <td>${pick.fecha_pick}</td>
+                            <td>${pick.usuario_pick}</td>
+                            <td>
+                                <button class="btn btn-sm btn-danger-custom btn-deshacer" data-id="${pick.id}" data-empaque="${pick.numero_empaque}" data-codart="${pick.codart}" data-cantidad="${pick.cantidad}">
+                                    <i class="fas fa-undo mr-1"></i>Deshacer
+                                </button>
+                            </td>
+                        </tr>
+                    `);
+                });
+            })
+            .fail(function(xhr) {
+                console.error('Error:', xhr.status, xhr.responseText);
+                $('#lista-picks').html('<tr><td colspan="8" class="text-center text-danger">Error al buscar</td></tr>');
+            });
+    });
+    
+    // Evento: deshacer
+    $(document).on('click', '.btn-deshacer', function() {
+        pickSeleccionado = {
+            id: $(this).data('id'),
+            empaque: $(this).data('empaque'),
+            codart: $(this).data('codart'),
+            cantidad: $(this).data('cantidad')
+        };
+        $('#motivo').val('');
+        $('#modalConfirmar').modal('show');
+    });
+    
+    // Confirmar deshacer
+    $('#btn-confirmar').on('click', function() {
+        if (!pickSeleccionado) return;
+        
+        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i>Procesando...');
+        
+        $.ajax({
+            url: `/deshacer-pickeo/confirmar/${pickSeleccionado.id}`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ motivo: $('#motivo').val() }),
+            success: function(data) {
+                if (data.success) {
+                    alert(data.mensaje);
+                    $('#modalConfirmar').modal('hide');
+                    $('#btn-buscar').click();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            },
+            error: function() {
+                alert('Error de comunicación');
+            },
+            complete: function() {
+                $('#btn-confirmar').prop('disabled', false).html('<i class="fas fa-undo mr-1"></i>Deshacer Pickeo');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

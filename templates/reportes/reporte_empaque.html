@@ -1,0 +1,785 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4" style="color: #2c3e50;">
+        <i class="fas fa-chart-line mr-2"></i>Reporte de Empaque
+    </h2>
+
+    <!-- Pestañas -->
+    <ul class="nav nav-tabs mb-4" id="reporteTabs" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" id="dashboard-tab" data-toggle="tab" href="#dashboard" role="tab">
+                <i class="fas fa-chart-simple mr-1"></i>Dashboard
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="detalle-tab" data-toggle="tab" href="#detalle" role="tab">
+                <i class="fas fa-table-list mr-1"></i>Detalle de Piqueos
+            </a>
+        </li>
+    </ul>
+
+    <!-- Contenido de pestañas -->
+    <div class="tab-content" id="reporteTabsContent">
+        <!-- Pestaña Dashboard -->
+        <div class="tab-pane fade show active" id="dashboard" role="tabpanel">
+            <!-- Tarjetas de estados -->
+            <div class="row mb-4" id="tarjetas-estados">
+                <div class="col-md-2">
+                    <div class="card card-custom text-white bg-secondary" style="cursor: pointer;">
+                        <div class="card-body">
+                            <h6 class="card-title">NO PICKEADO</h6>
+                            <h3 class="mb-0" id="count-no-pickeado">0</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card card-custom text-white bg-info" style="cursor: pointer;">
+                        <div class="card-body">
+                            <h6 class="card-title">PICKEADO PARCIAL</h6>
+                            <h3 class="mb-0" id="count-parcial">0</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card card-custom text-white bg-warning" style="cursor: pointer;">
+                        <div class="card-body">
+                            <h6 class="card-title">PENDIENTE DE CONTROL</h6>
+                            <h3 class="mb-0" id="count-pendiente-control">0</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card card-custom text-white bg-primary" style="cursor: pointer;">
+                        <div class="card-body">
+                            <h6 class="card-title">PENDIENTE DE REMITIR</h6>
+                            <h3 class="mb-0" id="count-pendiente-remitir">0</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card card-custom text-white bg-danger" style="cursor: pointer;">
+                        <div class="card-body">
+                            <h6 class="card-title">REMITIDO PARCIAL</h6>
+                            <h3 class="mb-0" id="count-remitido-parcial">0</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="card card-custom text-white bg-success" style="cursor: pointer;">
+                        <div class="card-body">
+                            <h6 class="card-title">REMITIDO COMPLETO</h6>
+                            <h3 class="mb-0" id="count-remitido-completo">0</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Listado de pedidos por estado -->
+            <div class="card card-custom">
+                <div class="card-header bg-primary-custom text-white">
+                    <h5 class="mb-0"><i class="fas fa-list mr-2"></i>Listado de Pedidos</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-custom" id="tabla-pedidos-estado">
+                            <thead>
+                                <tr>
+                                    <th>Nro Pedido</th>
+                                    <th>Cliente</th>
+                                    <th>Dirección Envío</th>
+                                    <th>N° Empaque</th>
+                                    <th>Grupo Pickeo</th>
+                                    <th>Acciones</th>
+                                 </thead>
+                            <tbody id="lista-pedidos">
+                                 <tr>
+                                    <td colspan="6" class="text-center">
+                                        <i class="fas fa-info-circle mr-2"></i> Seleccione un estado para ver los pedidos
+                                      ‐
+                                  ‐
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pestaña Detalle de Piqueos -->
+        <div class="tab-pane fade" id="detalle" role="tabpanel">
+            <div class="card card-custom">
+                <div class="card-header bg-info-custom text-white">
+                    <h5 class="mb-0"><i class="fas fa-filter mr-2"></i>Filtros</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="filtro-numero-empaque">N° Empaque:</label>
+                                <input type="text" id="filtro-numero-empaque" class="form-control input-custom" placeholder="N° Empaque">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="filtro-cliente">Cliente:</label>
+                                <input type="text" id="filtro-cliente" class="form-control input-custom" placeholder="Cliente">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="filtro-direccion">Dirección:</label>
+                                <input type="text" id="filtro-direccion" class="form-control input-custom" placeholder="Dirección">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="filtro-usuario">Usuario Creación:</label>
+                                <input type="text" id="filtro-usuario" class="form-control input-custom" placeholder="Usuario">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="filtro-estado-empaque">Estado Empaque:</label>
+                                <select id="filtro-estado-empaque" class="form-control input-custom" style="height: 45px; padding: 8px 12px; font-size: 1rem;">
+                                    <option value="">Todos</option>
+                                    <option value="PENDIENTE">PENDIENTE</option>
+                                    <option value="EN_PROCESO">EN PROCESO</option>
+                                    <option value="COMPLETADO">COMPLETADO</option>
+                                    <option value="PALLETIZADO">PALLETIZADO</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="filtro-fecha-desde">Fecha Completado desde:</label>
+                                <input type="date" id="filtro-fecha-desde" class="form-control input-custom">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="filtro-fecha-hasta">Fecha Completado hasta:</label>
+                                <input type="date" id="filtro-fecha-hasta" class="form-control input-custom">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="filtro-nro-pedido">Nro Pedido:</label>
+                                <input type="text" id="filtro-nro-pedido" class="form-control input-custom" placeholder="Nro Pedido">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="filtro-cod-articulo">Código Artículo:</label>
+                                <input type="text" id="filtro-cod-articulo" class="form-control input-custom" placeholder="Código">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="filtro-descripcion">Descripción:</label>
+                                <input type="text" id="filtro-descripcion" class="form-control input-custom" placeholder="Descripción">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="filtro-estado-pickeo">Estado Pickeo:</label>
+                                <select id="filtro-estado-pickeo" class="form-control input-custom" style="height: 45px; padding: 8px 12px; font-size: 1rem;">
+                                    <option value="">Todos</option>
+                                    <option value="PENDIENTE">PENDIENTE</option>
+                                    <option value="PARCIAL">PARCIAL</option>
+                                    <option value="COMPLETADO">COMPLETADO</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="filtro-nro-remito">Nro Remito:</label>
+                                <input type="text" id="filtro-nro-remito" class="form-control input-custom" placeholder="Nro Remito">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="filtro-cant-pedido">Cantidad Pedido:</label>
+                                <input type="text" id="filtro-cant-pedido" class="form-control input-custom" placeholder="Cantidad">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="filtro-cant-entregada">Cantidad Entregada:</label>
+                                <input type="text" id="filtro-cant-entregada" class="form-control input-custom" placeholder="Cantidad">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="filtro-diferencia">Diferencia:</label>
+                                <input type="text" id="filtro-diferencia" class="form-control input-custom" placeholder="Diferencia">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="filtro-usuarios-pick">Usuarios Pick:</label>
+                                <input type="text" id="filtro-usuarios-pick" class="form-control input-custom" placeholder="Usuarios">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12 text-right">
+                            <button id="btn-aplicar-filtros-detalle" class="btn btn-primary-custom">
+                                <i class="fas fa-search mr-1"></i>Aplicar Filtros
+                            </button>
+                            <button id="btn-limpiar-filtros-detalle" class="btn btn-secondary">
+                                <i class="fas fa-eraser mr-1"></i>Limpiar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card card-custom mt-3">
+                <div class="card-header bg-success-custom text-white">
+                    <h5 class="mb-0"><i class="fas fa-table-list mr-2"></i>Detalle de Piqueos</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                        <table class="table table-custom table-sm" id="tabla-detalle-piqueos">
+                            <thead>
+                                <tr>
+                                    <th>N° Empaque</th>
+                                    <th>Cliente</th>
+                                    <th>Dirección</th>
+                                    <th>Fecha Creación</th>
+                                    <th>Usuario</th>
+                                    <th>Estado</th>
+                                    <th>Fecha Comp.</th>
+                                    <th>Nro Pedido</th>
+                                    <th>Código</th>
+                                    <th>Descripción</th>
+                                    <th>Req.</th>
+                                    <th>Pick.</th>
+                                    <th>Estado Pick</th>
+                                    <th>N° Remito</th>
+                                    <th>Entreg.</th>
+                                    <th>Fecha Rem.</th>
+                                    <th>Dif.</th>
+                                    <th>Usuarios Pick</th>
+                                    <th>Cant. Ped.</th>
+                                 </thead>
+                            <tbody id="lista-detalle-piqueos">
+                                 <tr>
+                                    <td colspan="19" class="text-center">
+                                        <i class="fas fa-spinner fa-spin"></i> Cargando datos...
+                                      ‐
+                                  ‐
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para ver detalle del pedido -->
+<div class="modal fade" id="modalDetallePedido" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-xl" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-info-custom text-white">
+                <h5 class="modal-title"><i class="fas fa-box-open mr-2"></i>Detalle del Pedido</h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info" id="modal-info-pedido"></div>
+
+                <!-- Resumen del empaque -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <div class="alert alert-secondary" id="modal-resumen-empaque" style="display: none;">
+                            <strong>Resumen del Empaque:</strong>
+                            <span id="resumen-pallets">0</span> pallet(s) | 
+                            Peso total: <span id="resumen-peso">0</span> kg
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Botón PDF -->
+                <div class="text-right mb-3">
+                    <button id="btn-pdf-detalle" class="btn btn-danger-custom">
+                        <i class="fas fa-file-pdf mr-1"></i>Generar PDF
+                    </button>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered" id="tabla-detalle-pedido">
+                        <thead>
+                            <tr>
+                                <th>N° Empaque</th>
+                                <th>Código Artículo</th>
+                                <th>Descripción</th>
+                                <th class="text-right">Cantidad Pedida</th>
+                                <th class="text-right">Cantidad Pickeada</th>
+                                <th>Estado Pickeo</th>
+                                <th>N° Remito</th>
+                                <th class="text-right">Cantidad Entregada</th>
+                                <th class="text-right">Diferencia</th>
+                                <th>Fecha Remito</th>
+                             </thead>
+                        <tbody id="modal-detalle-items">
+                        </tbody>
+                        <tfoot id="modal-detalle-totales" style="font-weight: bold;">
+                            <!-- Se llenarán los totales -->
+                        </tfoot>
+                    </tr>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Estilos para el detalle del pedido */
+.pendiente-row {
+    background-color: #ffcccc !important;
+    color: #cc0000 !important;
+}
+.total-diferencia {
+    background-color: #ff9999 !important;
+    font-weight: bold;
+}
+.total-ok {
+    background-color: #d4edda !important;
+    font-weight: bold;
+}
+</style>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof $ === 'undefined') {
+        console.error('jQuery no está cargado');
+        return;
+    }
+    
+    console.log('Reporte de Empaque iniciado');
+    
+    var estadoSeleccionado = null;
+    
+    // Mapeo de estados para las tarjetas
+    var estadosMap = {
+        'NO PICKEADO': 'count-no-pickeado',
+        'PICKEADO PARCIAL': 'count-parcial',
+        'PENDIENTE DE CONTROL': 'count-pendiente-control',
+        'PENDIENTE DE REMITIR': 'count-pendiente-remitir',
+        'REMITIDO PARCIAL': 'count-remitido-parcial',
+        'REMITIDO COMPLETO': 'count-remitido-completo'
+    };
+    
+    // Cargar datos del dashboard
+    function cargarDashboard() {
+        $.get('/reporte-empaque/dashboard')
+            .done(function(data) {
+                console.log('Dashboard data:', data);
+                for (var estado in estadosMap) {
+                    var count = data[estado] || 0;
+                    $('#' + estadosMap[estado]).text(count);
+                }
+            })
+            .fail(function(xhr) {
+                console.error('Error cargando dashboard:', xhr.status);
+            });
+    }
+    
+    // Cargar pedidos por estado
+    function cargarPedidosPorEstado(estado) {
+        $('#lista-pedidos').html(`
+            <tr>
+                <td colspan="6" class="text-center">
+                    <i class="fas fa-spinner fa-spin"></i> Cargando pedidos...
+                </td>
+            </tr>
+        `);
+        
+        $.get('/reporte-empaque/pedidos-por-estado', { estado: estado })
+            .done(function(data) {
+                var tbody = $('#lista-pedidos');
+                tbody.empty();
+                
+                if (!data || data.length === 0) {
+                    tbody.append('<tr><td colspan="6" class="text-center">No hay pedidos en este estado</td></tr>');
+                    return;
+                }
+                
+                data.forEach(function(pedido) {
+                    var badgeClass = '';
+                    if (pedido.GrupoPickeo === 'NO PICKEADO') badgeClass = 'secondary';
+                    else if (pedido.GrupoPickeo === 'PICKEADO PARCIAL') badgeClass = 'info';
+                    else if (pedido.GrupoPickeo === 'PENDIENTE DE CONTROL') badgeClass = 'warning';
+                    else if (pedido.GrupoPickeo === 'PENDIENTE DE REMITIR') badgeClass = 'primary';
+                    else if (pedido.GrupoPickeo === 'REMITIDO PARCIAL') badgeClass = 'danger';
+                    else if (pedido.GrupoPickeo === 'REMITIDO COMPLETO') badgeClass = 'success';
+                    
+                    tbody.append(`
+                        <tr>
+                            <td><strong>${pedido.NroPedido || '-'}</strong></td>
+                            <td>${pedido.Cliente || '-'}</td>
+                            <td>${pedido.DireccionEnvio || '-'}</td>
+                            <td>${pedido.NumeroEmpaque || '-'}</td>
+                            <td><span class="badge badge-${badgeClass}">${pedido.GrupoPickeo || '-'}</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-info-custom btn-ver-detalle-pedido" data-pedido="${pedido.NroPedido}" data-empaque="${pedido.NumeroEmpaque}">
+                                    <i class="fas fa-eye"></i> Ver Detalle
+                                </button>
+                            </td>
+                        </tr>
+                    `);
+                });
+            })
+            .fail(function() {
+                $('#lista-pedidos').html('<tr><td colspan="6" class="text-center text-danger">Error al cargar pedidos</td></tr>');
+            });
+    }
+    
+    // Cargar detalle de piqueos
+    function cargarDetallePiqueos() {
+        var params = {
+            numero_empaque: $('#filtro-numero-empaque').val(),
+            cliente: $('#filtro-cliente').val(),
+            direccion: $('#filtro-direccion').val(),
+            usuario_creacion: $('#filtro-usuario').val(),
+            estado_empaque: $('#filtro-estado-empaque').val(),
+            fecha_desde: $('#filtro-fecha-desde').val(),
+            fecha_hasta: $('#filtro-fecha-hasta').val(),
+            nro_pedido: $('#filtro-nro-pedido').val(),
+            cod_articulo: $('#filtro-cod-articulo').val(),
+            descripcion: $('#filtro-descripcion').val(),
+            estado_pickeo: $('#filtro-estado-pickeo').val(),
+            nro_remito: $('#filtro-nro-remito').val(),
+            cant_pedido: $('#filtro-cant-pedido').val(),
+            cant_entregada: $('#filtro-cant-entregada').val(),
+            diferencia: $('#filtro-diferencia').val(),
+            usuarios_pick: $('#filtro-usuarios-pick').val()
+        };
+        
+        $('#lista-detalle-piqueos').html(`
+            <tr>
+                <td colspan="19" class="text-center">
+                    <i class="fas fa-spinner fa-spin"></i> Cargando datos...
+                </td>
+            </tr>
+        `);
+        
+        $.get('/reporte-empaque/detalle-piqueos', params)
+            .done(function(data) {
+                var tbody = $('#lista-detalle-piqueos');
+                tbody.empty();
+                
+                if (!data || data.length === 0) {
+                    tbody.append('<tr><td colspan="19" class="text-center">No hay datos para mostrar</td></tr>');
+                    return;
+                }
+                
+                data.forEach(function(item) {
+                    var badgeEstado = '';
+                    if (item.EstadoEmpaque === 'PENDIENTE') badgeEstado = 'warning';
+                    else if (item.EstadoEmpaque === 'EN_PROCESO') badgeEstado = 'info';
+                    else if (item.EstadoEmpaque === 'COMPLETADO') badgeEstado = 'success';
+                    else if (item.EstadoEmpaque === 'PALLETIZADO') badgeEstado = 'primary';
+                    else badgeEstado = 'secondary';
+                    
+                    var badgePickeo = item.EstadoPickeo === 'COMPLETADO' ? 'success' : 'warning';
+                    
+                    tbody.append(`
+                        <tr>
+                            <td>${item.NumeroEmpaque || '-'}</td>
+                            <td>${item.Cliente || '-'}</td>
+                            <td>${item.DireccionEnvio || '-'}</td>
+                            <td>${item.FechaCreacion || '-'}</td>
+                            <td>${item.UsuarioCreacion || '-'}</td>
+                            <td><span class="badge badge-${badgeEstado}">${item.EstadoEmpaque || '-'}</span></td>
+                            <td>${item.FechaCompletado || '-'}</td>
+                            <td>${item.NroPedido || '-'}</td>
+                            <td>${item.CodArticulo || '-'}</td>
+                            <td>${item.Descripcion || '-'}</td>
+                            <td class="text-right">${item.CantidadRequerida || 0}</td>
+                            <td class="text-right">${item.CantidadPickeada || 0}</td>
+                            <td><span class="badge badge-${badgePickeo}">${item.EstadoPickeo || '-'}</span></td>
+                            <td>${item.NROREMITO || '-'}</td>
+                            <td class="text-right">${item.CANT_ENTREGADA || 0}</td>
+                            <td>${item.REMFECHA || '-'}</td>
+                            <td class="text-right">${item.Diferencia || 0}</td>
+                            <td>${item.UsuariosPick || '-'}</td>
+                            <td class="text-right">${item.CANT_PEDIDO || 0}</td>
+                        </tr>
+                    `);
+                });
+            })
+            .fail(function() {
+                $('#lista-detalle-piqueos').html('<td><td colspan="19" class="text-center text-danger">Error al cargar datos</td></tr>');
+            });
+    }
+    
+    // Evento: click en tarjetas
+    $('#tarjetas-estados .card').on('click', function() {
+        var estado = $(this).find('.card-title').text().trim();
+        console.log('Estado seleccionado:', estado);
+        estadoSeleccionado = estado;
+        cargarPedidosPorEstado(estado);
+    });
+    
+    // Evento: ver detalle del pedido
+    $(document).on('click', '.btn-ver-detalle-pedido', function() {
+        var pedido = $(this).data('pedido');
+        var empaque = $(this).data('empaque');
+        
+        $.get('/reporte-empaque/detalle-pedido', { pedido: pedido, empaque: empaque })
+            .done(function(data) {
+                if (data.success) {
+                    $('#modal-info-pedido').html(`
+                        <strong>Pedido:</strong> ${pedido}<br>
+                        <strong>Cliente:</strong> ${data.cliente || '-'}<br>
+                        <strong>Dirección:</strong> ${data.direccion || '-'}<br>
+                        <strong>N° Empaque:</strong> ${empaque || '-'}
+                    `);
+                    
+                    // Mostrar resumen del empaque
+                    if (data.total_pallets > 0 || data.peso_total > 0) {
+                        $('#resumen-pallets').text(data.total_pallets);
+                        $('#resumen-peso').text(data.peso_total.toFixed(2));
+                        $('#modal-resumen-empaque').show();
+                    } else {
+                        $('#modal-resumen-empaque').hide();
+                    }
+                    
+                    var tbody = $('#modal-detalle-items');
+                    tbody.empty();
+                    
+                    var totalPedido = 0;
+                    var totalPickeado = 0;
+                    var totalDiferencia = 0;
+                    
+                    if (data.items && data.items.length > 0) {
+                        data.items.forEach(function(item) {
+                            var diferencia = item.CantidadRequerida - item.CantidadPickeada;
+                            var rowClass = '';
+                            
+                            if (item.CantidadPickeada < item.CantidadRequerida) {
+                                rowClass = 'pendiente-row';
+                            }
+                            
+                            totalPedido += item.CantidadRequerida;
+                            totalPickeado += item.CantidadPickeada;
+                            totalDiferencia += diferencia;
+                            
+                            tbody.append(`
+                                <tr class="${rowClass}">
+                                    <td>${item.NumeroEmpaque || '-'}</td>
+                                    <td>${item.CodArticulo || '-'}</td>
+                                    <td>${item.Descripcion || '-'}</td>
+                                    <td class="text-right">${item.CantidadRequerida.toLocaleString()}</td>
+                                    <td class="text-right">${item.CantidadPickeada.toLocaleString()}</td>
+                                    <td>${item.EstadoPickeo || '-'}</td>
+                                    <td>${item.NROREMITO || '-'}</td>
+                                    <td class="text-right">${item.CANT_ENTREGADA.toLocaleString()}</td>
+                                    <td class="text-right">${diferencia.toLocaleString()}</td>
+                                    <td>${item.REMFECHA || '-'}</td>
+                                </tr>
+                            `);
+                        });
+                        
+                        var totalClass = (totalDiferencia > 0) ? 'total-diferencia' : 'total-ok';
+                        $('#modal-detalle-totales').html(`
+                            <tr class="${totalClass}">
+                                <td colspan="3" class="text-right font-weight-bold">TOTALES:</td>
+                                <td class="text-right font-weight-bold">${totalPedido.toLocaleString()}</td>
+                                <td class="text-right font-weight-bold">${totalPickeado.toLocaleString()}</td>
+                                <td colspan="2"></td>
+                                <td class="text-right font-weight-bold">${totalPickeado.toLocaleString()}</td>
+                                <td class="text-right font-weight-bold">${totalDiferencia.toLocaleString()}</td>
+                                <td></td>
+                            </tr>
+                        `);
+                        
+                        window.detallePedidoActual = {
+                            pedido: pedido,
+                            empaque: empaque,
+                            cliente: data.cliente,
+                            direccion: data.direccion,
+                            total_pallets: data.total_pallets,
+                            peso_total: data.peso_total,
+                            items: data.items,
+                            totalPedido: totalPedido,
+                            totalPickeado: totalPickeado,
+                            totalDiferencia: totalDiferencia
+                        };
+                        
+                    } else {
+                        tbody.append('<tr><td colspan="10" class="text-center">No hay items para mostrar</td></tr>');
+                        $('#modal-detalle-totales').empty();
+                    }
+                    
+                    $('#modalDetallePedido').modal('show');
+                } else {
+                    alert('Error al cargar detalle');
+                }
+            })
+            .fail(function() {
+                alert('Error de comunicación');
+            });
+    });
+    
+    // Función para generar PDF del detalle
+    function generarPDFDetalle() {
+        if (!window.detallePedidoActual) return;
+        
+        var d = window.detallePedidoActual;
+        var fechaActual = new Date().toLocaleString();
+        
+        var htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Detalle_Pedido_${d.pedido}</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 20px; font-size: 12px; }
+                h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; font-size: 18px; }
+                .info { margin-bottom: 20px; background: #f8f9fa; padding: 10px; border-radius: 5px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                th { background: #2c3e50; color: white; padding: 10px; text-align: left; font-size: 11px; }
+                td { padding: 8px; border-bottom: 1px solid #ddd; font-size: 10px; }
+                .footer { margin-top: 30px; font-size: 10px; color: #7f8c8d; text-align: center; }
+                .text-right { text-align: right; }
+                .pendiente-row { background-color: #ffcccc; }
+                .total-diferencia { background-color: #ff9999; font-weight: bold; }
+                .total-ok { background-color: #d4edda; font-weight: bold; }
+            </style>
+        </head>
+        <body>
+            <h1>Detalle del Pedido</h1>
+            <div class="info">
+            <p><strong>Pedido:</strong> ${d.pedido}</p>
+            <p><strong>Cliente:</strong> ${d.cliente || '-'}</p>
+            <p><strong>Dirección:</strong> ${d.direccion || '-'}</p>
+            <p><strong>N° Empaque:</strong> ${d.empaque || '-'}</p>
+            <p><strong>Pallets del empaque:</strong> ${d.total_pallets || 0}</p>
+            <p><strong>Peso total del empaque:</strong> ${d.peso_total ? d.peso_total.toFixed(2) : 0} kg</p>
+            <p><strong>Fecha de generación:</strong> ${fechaActual}</p>
+        </div>
+            <table>
+            <thead>
+                <tr>
+                    <th>N° Empaque</th>
+                    <th>Código Artículo</th>
+                    <th>Descripción</th>
+                    <th class="text-right">Cant. Pedida</th>
+                    <th class="text-right">Cant. Pickeada</th>
+                    <th>Estado Pickeo</th>
+                    <th>N° Remito</th>
+                    <th class="text-right">Cant. Entregada</th>
+                    <th class="text-right">Diferencia</th>
+                    <th>Fecha Remito</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+        
+        d.items.forEach(function(item) {
+            var diferencia = item.CantidadRequerida - item.CantidadPickeada;
+            var rowClass = (item.CantidadPickeada < item.CantidadRequerida) ? 'pendiente-row' : '';
+            htmlContent += `
+                <tr class="${rowClass}">
+                    <td>${item.NumeroEmpaque || '-'}</td>
+                    <td>${item.CodArticulo || '-'}</td>
+                    <td>${item.Descripcion || '-'}</td>
+                    <td class="text-right">${item.CantidadRequerida.toLocaleString()}</td>
+                    <td class="text-right">${item.CantidadPickeada.toLocaleString()}</td>
+                    <td>${item.EstadoPickeo || '-'}</td>
+                    <td>${item.NROREMITO || '-'}</td>
+                    <td class="text-right">${item.CANT_ENTREGADA.toLocaleString()}</td>
+                    <td class="text-right">${diferencia.toLocaleString()}</td>
+                    <td>${item.REMFECHA || '-'}</td>
+                </tr>
+            `;
+        });
+        
+        var totalClass = (d.totalDiferencia > 0) ? 'total-diferencia' : 'total-ok';
+        htmlContent += `
+                </tbody>
+                <tfoot>
+                    <tr class="${totalClass}">
+                        <td colspan="3" class="text-right">TOTALES:</td>
+                        <td class="text-right">${d.totalPedido.toLocaleString()}</td>
+                        <td class="text-right">${d.totalPickeado.toLocaleString()}</td>
+                        <td colspan="2"></td>
+                        <td class="text-right">${d.totalPickeado.toLocaleString()}</td>
+                        <td class="text-right">${d.totalDiferencia.toLocaleString()}</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+            <div class="footer">
+                <p>Sistema de Gestión de Empaques - Reporte generado el ${fechaActual}</p>
+            </div>
+        </body>
+        </html>
+        `;
+        
+        var ventana = window.open('', '_blank');
+        ventana.document.write(htmlContent);
+        ventana.document.close();
+        ventana.print();
+    }
+    
+    // Evento: botón PDF
+    $(document).on('click', '#btn-pdf-detalle', function() {
+        generarPDFDetalle();
+    });
+    
+    // Evento: aplicar filtros detalle
+    $('#btn-aplicar-filtros-detalle').on('click', cargarDetallePiqueos);
+    
+    // Evento: limpiar filtros detalle
+    $('#btn-limpiar-filtros-detalle').on('click', function() {
+        $('#filtro-numero-empaque').val('');
+        $('#filtro-cliente').val('');
+        $('#filtro-direccion').val('');
+        $('#filtro-usuario').val('');
+        $('#filtro-estado-empaque').val('');
+        $('#filtro-fecha-desde').val('');
+        $('#filtro-fecha-hasta').val('');
+        $('#filtro-nro-pedido').val('');
+        $('#filtro-cod-articulo').val('');
+        $('#filtro-descripcion').val('');
+        $('#filtro-estado-pickeo').val('');
+        $('#filtro-nro-remito').val('');
+        $('#filtro-cant-pedido').val('');
+        $('#filtro-cant-entregada').val('');
+        $('#filtro-diferencia').val('');
+        $('#filtro-usuarios-pick').val('');
+        cargarDetallePiqueos();
+    });
+    
+    // Evento: cambiar pestaña
+    $('a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
+        if (e.target.id === 'detalle-tab') {
+            cargarDetallePiqueos();
+        }
+    });
+    
+    // Inicializar
+    cargarDashboard();
+});
+</script>
+{% endblock %}

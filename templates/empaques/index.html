@@ -1,0 +1,878 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4" style="color: #2c3e50;">
+        <i class="fas fa-boxes mr-2"></i>Gestión de Empaques
+    </h2>
+
+    <!-- Pestañas -->
+    <ul class="nav nav-tabs mb-4" id="empaquesTabs" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" id="crear-tab" data-toggle="tab" href="#crear" role="tab">
+                <i class="fas fa-plus-circle mr-1"></i>Crear Nuevo Empaque
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="listar-tab" data-toggle="tab" href="#listar" role="tab">
+                <i class="fas fa-list mr-1"></i>Listado de Empaques
+            </a>
+        </li>
+    </ul>
+
+    <!-- Contenido de pestañas -->
+    <div class="tab-content" id="empaquesTabsContent">
+        <!-- Pestaña Crear Empaque -->
+        <div class="tab-pane fade show active" id="crear" role="tabpanel">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card card-custom">
+                        <div class="card-header bg-primary-custom text-white">
+                            <h5 class="mb-0"><i class="fas fa-filter mr-2"></i>Filtros</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label for="filtro-zona" class="font-weight-bold">Zona:</label>
+                                <select id="filtro-zona" class="form-control input-custom" style="height: 45px; padding: 8px 12px; font-size: 1rem;">
+                                    <option value="todas">Todas las zonas</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="filtro-cliente" class="font-weight-bold">Cliente:</label>
+                                <input type="text" id="filtro-cliente" class="form-control input-custom" placeholder="Filtrar por cliente...">
+                            </div>
+                            <div class="form-group">
+                                <label for="filtro-articulo" class="font-weight-bold">Artículo:</label>
+                                <input type="text" id="filtro-articulo" class="form-control input-custom" placeholder="Filtrar por artículo...">
+                            </div>
+                            <button id="btn-aplicar-filtros" class="btn btn-primary-custom btn-block">
+                                <i class="fas fa-search mr-1"></i>Aplicar Filtros
+                            </button>
+                            <button id="btn-limpiar-filtros" class="btn btn-secondary btn-block mt-2">
+                                <i class="fas fa-eraser mr-1"></i>Limpiar Filtros
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-8">
+                    <div class="card card-custom">
+                        <div class="card-header bg-success-custom text-white">
+                            <h5 class="mb-0"><i class="fas fa-sitemap mr-2"></i>Productos Agrupados para Empaquetar</h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="productos-agrupados-container" style="max-height: 600px; overflow-y: auto;">
+                                <!-- Se llena dinámicamente -->
+                                <div class="text-center p-4">
+                                    <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
+                                    <p class="mt-2">Cargando productos agrupados...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pestaña Listado de Empaques -->
+        <div class="tab-pane fade" id="listar" role="tabpanel">
+            <div class="card card-custom">
+                <div class="card-header bg-info-custom text-white">
+                    <h5 class="mb-0"><i class="fas fa-list mr-2"></i>Empaques Creados</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Filtros para listado de empaques -->
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label for="filtro-lista-estado" class="font-weight-bold">Estado:</label>
+                                <select id="filtro-lista-estado" class="form-control input-custom" style="height: 45px; padding: 8px 12px; font-size: 1rem;">
+                                    <option value="">Todos</option>
+                                    <option value="PENDIENTE">PENDIENTE</option>
+                                    <option value="EN_PROCESO">EN PROCESO</option>
+                                    <option value="COMPLETADO">COMPLETADO</option>
+                                    <option value="CONTROL_COMPLETADO">CONTROL COMPLETADO</option>
+                                  </select>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="filtro-lista-fecha-desde" class="font-weight-bold">Fecha desde:</label>
+                                    <input type="date" id="filtro-lista-fecha-desde" class="form-control input-custom">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="filtro-lista-cliente" class="font-weight-bold">Cliente:</label>
+                                <input type="text" id="filtro-lista-cliente" class="form-control input-custom" placeholder="Buscar por cliente...">
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label>&nbsp;</label>
+                                <button id="btn-aplicar-filtros-lista" class="btn btn-primary-custom btn-block">
+                                    <i class="fas fa-search mr-1"></i>Filtrar
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label>&nbsp;</label>
+                                <button id="btn-limpiar-filtros-lista" class="btn btn-secondary btn-block">
+                                    <i class="fas fa-eraser mr-1"></i>Limpiar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="table-responsive">
+                        <table class="table table-custom" id="tabla-empaques">
+                            <thead>
+                                <tr>
+                                    <th>N° Empaque</th>
+                                    <th>Cliente</th>
+                                    <th>Dirección</th>
+                                    <th>Fecha Creación</th>
+                                    <th>Productos</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="empaques-listado">
+                                <tr>
+                                    <td colspan="7" class="text-center">
+                                        <i class="fas fa-spinner fa-spin"></i> Cargando...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para confirmar creación de empaque -->
+<div class="modal fade" id="modalConfirmarEmpaque" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-primary-custom text-white">
+                <h5 class="modal-title"><i class="fas fa-box mr-2"></i>Confirmar Creación de Empaque</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <strong>Cliente:</strong> <span id="modal-cliente"></span><br>
+                    <strong>Dirección:</strong> <span id="modal-direccion"></span><br>
+                    <strong>Artículos:</strong> <span id="modal-articulo"></span>
+                </div>
+                
+                <h6>Detalle por Pedido:</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Pedido</th>
+                                <th>Artículo</th>
+                                <th>Cantidad</th>
+                                <th>Orden</th>
+                                <th>Observaciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modal-detalle-pedidos">
+                            <!-- Se llena dinámicamente -->
+                        </tbody>
+                        <tfoot>
+                            <tr class="font-weight-bold">
+                                <td colspan="2" class="text-right">TOTAL:</td>
+                                <td id="modal-total-cantidad">0</td>
+                                <td></td>
+                                <td></td>
+                             </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success-custom" id="btn-confirmar-creacion">
+                    <i class="fas fa-check mr-1"></i>Confirmar y Crear Empaque
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para ver detalle del empaque con botón PDF -->
+<div class="modal fade" id="modalDetalleEmpaque" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-info-custom text-white">
+                <h5 class="modal-title"><i class="fas fa-box-open mr-2"></i>Detalle del Empaque</h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="detalle-contenido">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>N° Empaque:</strong> <span id="detalle-numero"></span><br>
+                        <strong>Cliente:</strong> <span id="detalle-cliente"></span><br>
+                        <strong>Dirección:</strong> <span id="detalle-direccion"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Estado:</strong> <span id="detalle-estado" class="badge"></span><br>
+                        <strong>Fecha Creación:</strong> <span id="detalle-fecha"></span><br>
+                        <strong>Creado por:</strong> <span id="detalle-usuario"></span>
+                    </div>
+                </div>
+                
+                <h6>Productos:</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered" id="tabla-detalle-productos">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Descripción</th>
+                                <th>Requerido</th>
+                                <th>Pickeado</th>
+                                <th>Pendiente</th>
+                                <th>Estado</th>
+                                <th>Lotes</th>
+                                <th>Pallets</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detalle-productos">
+                            <!-- Se llena dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div id="detalle-observaciones" class="alert alert-secondary mt-3" style="display: none;">
+                    <strong>Observaciones:</strong> <span></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary-custom" id="btn-generar-pdf">
+                    <i class="fas fa-file-pdf mr-1"></i>Generar PDF
+                </button>
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof $ === 'undefined') {
+        console.error('jQuery no está cargado');
+        return;
+    }
+    
+    console.log('Gestión de Empaques iniciada');
+    
+    var datosAgrupados = [];
+    var grupoSeleccionado = null;
+    var datosEmpaquesOriginales = []; // Almacenar todos los empaques para filtrado
+    var detalleActualParaPDF = null;
+    
+    // Cargar productos agrupados
+    function cargarProductosAgrupados() {
+        $('#productos-agrupados-container').html(`
+            <div class="text-center p-4">
+                <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
+                <p class="mt-2">Cargando productos agrupados...</p>
+            </div>
+        `);
+        
+        $.get('/empaques/productos-agrupados')
+            .done(function(data) {
+                console.log('Productos agrupados recibidos:', data);
+                datosAgrupados = data;
+                mostrarProductosAgrupados(data);
+                cargarZonas();
+            })
+            .fail(function(xhr, status, error) {
+                console.error('Error:', xhr.status, error);
+                $('#productos-agrupados-container').html(`
+                    <div class="alert alert-danger m-3">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        Error al cargar productos: ${error}
+                    </div>
+                `);
+            });
+    }
+    
+     // Mostrar productos agrupados
+    function mostrarProductosAgrupados(data) {
+        if (!data || data.length === 0) {
+            $('#productos-agrupados-container').html(`
+                <div class="alert alert-info m-3">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    No hay productos disponibles para empaquetar. 
+                    Asegurate de tener reservas activas y que no estén ya en un empaque.
+                </div>
+            `);
+            return;
+        }
+        
+        var html = '<div class="list-group list-group-flush">';
+        
+        // Agrupar por zona
+        var zonas = {};
+        data.forEach(function(item) {
+            var zona = item.Zona || 'SIN ZONA';
+            if (!zonas[zona]) {
+                zonas[zona] = [];
+            }
+            zonas[zona].push(item);
+        });
+        
+        // Mostrar por zona
+        for (var zona in zonas) {
+            html += `
+                <div class="list-group-item bg-light font-weight-bold">
+                    <i class="fas fa-map-marker-alt mr-2"></i>Zona: ${zona}
+                </div>
+            `;
+            
+            zonas[zona].forEach(function(item) {
+                html += `
+                    <div class="list-group-item producto-grupo" 
+                        data-codgrpemp="${item.CodGrupo || ''}"
+                        data-cliente="${item.Cliente.replace(/"/g, '&quot;')}"
+                        data-direccion="${item.DireccionEnvio.replace(/"/g, '&quot;')}"
+                        data-codart="${item.CodArt}"
+                        data-descripcion="${item.CodDesArticulo}"
+                        data-total="${item.TotalReservado}"
+                        data-orden="${(item.Orden || '').replace(/"/g, '&quot;')}"
+                        data-observaciones="${(item.Observaciones || '').replace(/"/g, '&quot;')}">
+                        <div class="d-flex w-100 justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">
+                                    <i class="fas fa-user mr-1"></i>${item.Cliente}
+                                </h6>
+                                <p class="mb-1 small">
+                                    <i class="fas fa-map-marker-alt mr-1"></i>${item.DireccionEnvio}
+                                </p>
+                                <p class="mb-1">
+                                    <span class="badge badge-info">${item.TotalReservado} unidades</span>
+                                    <span class="badge badge-secondary">${item.CantidadPedidos || 1} pedido(s)</span>
+                                </p>
+                                <small class="text-muted">
+                                    <i class="fas fa-boxes mr-1"></i>Artículos: ${item.CodArt}
+                                </small>
+                                ${item.Orden ? `<div class="small mt-1"><strong>Orden:</strong> ${item.Orden}</div>` : ''}
+                                ${item.Observaciones ? `<div class="small text-muted"><strong>Observaciones:</strong> ${item.Observaciones}</div>` : ''}
+                            </div>
+                            <button class="btn btn-success-custom btn-sm btn-seleccionar-grupo">
+                                <i class="fas fa-box mr-1"></i>Crear Empaque
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        html += '</div>';
+        $('#productos-agrupados-container').html(html);
+    }
+    
+    // Aplicar filtros
+    function aplicarFiltros() {
+        var zona = $('#filtro-zona').val();
+        var cliente = $('#filtro-cliente').val().toLowerCase();
+        var articulo = $('#filtro-articulo').val().toLowerCase();
+        
+        var datosFiltrados = datosAgrupados.filter(function(item) {
+            if (zona !== 'todas' && item.Zona !== zona) return false;
+            if (cliente && !item.Cliente.toLowerCase().includes(cliente)) return false;
+            if (articulo && !item.CodArt.toLowerCase().includes(articulo)) return false;
+            return true;
+        });
+        
+        mostrarProductosAgrupados(datosFiltrados);
+    }
+    
+    // Cargar zonas para el filtro
+    function cargarZonas() {
+        var zonas = new Set();
+        datosAgrupados.forEach(function(item) {
+            if (item.Zona) zonas.add(item.Zona);
+        });
+        
+        var select = $('#filtro-zona');
+        select.empty();
+        select.append('<option value="todas">Todas las zonas</option>');
+        
+        Array.from(zonas).sort().forEach(function(zona) {
+            select.append(`<option value="${zona}">${zona}</option>`);
+        });
+    }
+    
+    // Evento: seleccionar grupo
+    $(document).on('click', '.btn-seleccionar-grupo', function() {
+        var item = $(this).closest('.producto-grupo');
+        
+        grupoSeleccionado = {
+            codgrpemp: item.data('codgrpemp'),
+            direccion: item.data('direccion'),
+            cliente: item.data('cliente'),
+            codart: item.data('codart'),
+            descripcion: item.data('descripcion'),
+            total: item.data('total')
+        };
+        
+        // Cargar detalle por pedido
+        $.ajax({
+            url: '/empaques/detalle-por-grupo',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                codgrpemp: grupoSeleccionado.codgrpemp,
+                direccion: grupoSeleccionado.direccion
+            }),
+            success: function(data) {
+                if (data.success) {
+                    mostrarModalConfirmacion(data.productos);
+                } else {
+                    alert('Error al cargar detalle: ' + (data.error || 'Error desconocido'));
+                }
+            },
+            error: function(xhr) {
+                console.error('Error:', xhr.responseText);
+                alert('Error de comunicación');
+            }
+        });
+    });
+    
+    // Mostrar modal de confirmación
+    function mostrarModalConfirmacion(productos) {
+        $('#modal-cliente').text(grupoSeleccionado.cliente);
+        $('#modal-direccion').text(grupoSeleccionado.direccion);
+        $('#modal-articulo').text(grupoSeleccionado.codart);
+        
+        var tbody = $('#modal-detalle-pedidos');
+        tbody.empty();
+        var total = 0;
+        
+        productos.forEach(function(prod) {
+            tbody.append(`
+                <tr>
+                    <td>${prod.pedido}</td>
+                    <td>${prod.codart}</td>
+                    <td class="text-right">${prod.cantidad}</td>
+                    <td>${prod.orden || '-'}</td>
+                    <td>${prod.observaciones || '-'}</td>
+                </tr>
+            `);
+            total += prod.cantidad;
+        });
+        
+        $('#modal-total-cantidad').text(total);
+        $('#modal-observaciones').val('');
+        
+        grupoSeleccionado.productos = productos;
+        
+        $('#modalConfirmarEmpaque').modal('show');
+    }
+    
+    // Confirmar creación
+    $('#btn-confirmar-creacion').on('click', function() {
+        if (!grupoSeleccionado || !grupoSeleccionado.productos) return;
+        
+        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i>Creando...');
+        
+        $.ajax({
+            url: '/empaques/crear',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                zona: $('#filtro-zona').val(),
+                cliente: grupoSeleccionado.cliente,
+                codgrpemp: grupoSeleccionado.codgrpemp,
+                direccion: grupoSeleccionado.direccion,
+                productos: grupoSeleccionado.productos,
+                observaciones: $('#modal-observaciones').val()
+            }),
+            success: function(data) {
+                if (data.success) {
+                    alert(`Empaque creado exitosamente: ${data.numero}`);
+                    $('#modalConfirmarEmpaque').modal('hide');
+                    cargarProductosAgrupados();
+                    cargarListadoEmpaques();
+                } else {
+                    alert('Error: ' + (data.error || 'Error desconocido'));
+                }
+            },
+            error: function() {
+                alert('Error de comunicación');
+            },
+            complete: function() {
+                $('#btn-confirmar-creacion').prop('disabled', false).html('<i class="fas fa-check mr-1"></i>Confirmar y Crear Empaque');
+            }
+        });
+    });
+    
+    // Función para aplicar filtros al listado de empaques
+    function aplicarFiltrosLista() {
+        var estado = $('#filtro-lista-estado').val();
+        var cliente = $('#filtro-lista-cliente').val().toLowerCase();
+        var fechaDesde = $('#filtro-lista-fecha-desde').val();
+        var fechaHasta = $('#filtro-lista-fecha-hasta').val();
+        
+        var datosFiltrados = datosEmpaquesOriginales.filter(function(emp) {
+        if (estado && emp.Estado !== estado) return false;
+        if (cliente && !(emp.Cliente || '').toLowerCase().includes(cliente)) return false;
+        
+        // Filtrar por fecha
+        if (fechaDesde || fechaHasta) {
+            var fechaCreacion = emp.FechaCreacion ? new Date(emp.FechaCreacion) : null;
+            if (!fechaCreacion) return false;
+            
+            // Ajustar fechas para comparación
+            if (fechaDesde) {
+                var fechaDesdeObj = new Date(fechaDesde);
+                fechaDesdeObj.setHours(0, 0, 0, 0);
+                if (fechaCreacion < fechaDesdeObj) return false;
+            }
+            if (fechaHasta) {
+                var fechaHastaObj = new Date(fechaHasta);
+                fechaHastaObj.setHours(23, 59, 59, 999);
+                if (fechaCreacion > fechaHastaObj) return false;
+            }
+        }
+        
+        return true;
+        });
+        
+        mostrarListadoEmpaques(datosFiltrados);
+    }
+    
+    // Función para limpiar filtros del listado
+    function limpiarFiltrosLista() {
+        $('#filtro-lista-estado').val('');
+        $('#filtro-lista-cliente').val('');
+        mostrarListadoEmpaques(datosEmpaquesOriginales);
+    }
+    
+    // Mostrar listado de empaques
+    function mostrarListadoEmpaques(data) {
+        var tbody = $('#empaques-listado');
+        tbody.empty();
+        
+        if (!data || data.length === 0) {
+            tbody.append('<tr><td colspan="7" class="text-center">No hay empaques creados</td></tr>');
+            return;
+        }
+        
+        data.forEach(function(emp) {
+            var fecha = emp.FechaCreacion ? new Date(emp.FechaCreacion).toLocaleString() : '';
+            var totalProd = emp.TotalProductos || 0;
+            var prodCompletados = emp.ProductosCompletados || 0;
+            var progreso = totalProd > 0 ? Math.round((prodCompletados / totalProd) * 100) : 0;
+            
+            var badgeClass = 'secondary';
+            if (emp.Estado === 'PENDIENTE') badgeClass = 'warning';
+            else if (emp.Estado === 'EN_PROCESO') badgeClass = 'info';
+            else if (emp.Estado === 'COMPLETADO') badgeClass = 'success';
+            else if (emp.Estado === 'PALLETIZADO') badgeClass = 'primary';
+            
+            tbody.append(`
+                <tr>
+                    <td><strong>${emp.NumeroEmpaque || emp.numero}</strong></td>
+                    <td>${emp.Cliente || ''}</td>
+                    <td>${emp.DireccionEnvio || ''}</td>
+                    <td>${fecha}</td>
+                    <td>
+                        ${prodCompletados}/${totalProd}
+                        <div class="progress" style="height: 5px;">
+                            <div class="progress-bar bg-success" style="width: ${progreso}%"></div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge badge-${badgeClass}">
+                            ${emp.Estado || 'PENDIENTE'}
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-info-custom btn-ver-empaque" data-id="${emp.IdEmpaque || emp.id}">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </td>
+                </tr>
+            `);
+        });
+    }
+    
+    // Cargar listado de empaques
+    function cargarListadoEmpaques() {
+        
+        var estadoSeleccionado = $('#filtro-lista-estado').val() || 'EN_PROCESO';
+        
+        if (!$('#filtro-lista-estado').val()) {
+            $('#filtro-lista-estado').val('EN_PROCESO');
+            estadoSeleccionado = 'EN_PROCESO';
+        }
+        $.get('/empaques/listar')
+            .done(function(data) {
+                console.log('Listado de empaques:', data);
+                datosEmpaquesOriginales = data;
+                mostrarListadoEmpaques(data);
+            })
+            .fail(function(xhr) {
+                console.error('Error cargando empaques:', xhr.status);
+                $('#empaques-listado').html('<tr><td colspan="7" class="text-center text-danger">Error al cargar empaques</td></tr>');
+            });
+    }
+    
+    // Evento: ver detalle del empaque
+    $(document).on('click', '.btn-ver-empaque', function() {
+        var id = $(this).data('id');
+        console.log('Ver detalle del empaque ID:', id);
+        
+        $.get(`/empaques/detalle/${id}`)
+            .done(function(data) {
+                console.log('Respuesta recibida:', data);
+                if (data.success) {
+                    detalleActualParaPDF = data;
+                    var emp = data.empaque;
+                    $('#detalle-numero').text(emp.numero);
+                    $('#detalle-cliente').text(emp.cliente);
+                    $('#detalle-direccion').text(emp.direccion);
+                    $('#detalle-fecha').text(emp.fecha_creacion);
+                    $('#detalle-usuario').text(emp.usuario_creacion);
+                    
+                    var estadoBadge = $('#detalle-estado');
+                    estadoBadge.text(emp.estado);
+                    estadoBadge.removeClass('badge-warning badge-info badge-success badge-primary badge-secondary');
+                    if (emp.estado === 'PENDIENTE') estadoBadge.addClass('badge-warning');
+                    else if (emp.estado === 'EN_PROCESO') estadoBadge.addClass('badge-info');
+                    else if (emp.estado === 'COMPLETADO') estadoBadge.addClass('badge-success');
+                    else if (emp.estado === 'PALLETIZADO') estadoBadge.addClass('badge-primary');
+                    else estadoBadge.addClass('badge-secondary');
+                    
+                    var tbody = $('#detalle-productos');
+                    tbody.empty();
+                    
+                    if (data.detalles && data.detalles.length > 0) {
+                        data.detalles.forEach(function(det) {
+                            tbody.append(`
+                                <tr>
+                                    <td>${det.codart || '-'}</td>
+                                    <td>${det.descripcion || '-'}</td>
+                                    <td class="text-right">${det.requerido || 0}</td>
+                                    <td class="text-right">${det.pickeado || 0}</td>
+                                    <td class="text-right">${det.pendiente || 0}</td>
+                                    <td><span class="badge badge-${det.estado === 'COMPLETADO' ? 'success' : 'warning'}">${det.estado || 'PENDIENTE'}</span></td>
+                                    <td><small>${det.lotes || '-'}</small></td>
+                                    <td><small>${det.pallets || '-'}</small></td>
+                                </tr>
+                            `);
+                        });
+                    } else {
+                        tbody.append('<tr><td colspan="9" class="text-center">No hay productos en este empaque</td></tr>');
+                    }
+                    
+                    $('#modalDetalleEmpaque').modal('show');
+                } else {
+                    alert('Error al cargar detalle: ' + (data.error || 'Error desconocido'));
+                }
+            })
+            .fail(function(xhr) {
+                console.error('Error:', xhr.status, xhr.responseText);
+                alert('Error de comunicación: ' + xhr.status);
+            });
+    });
+    
+    // Evento: generar PDF (agrupado por artículo)
+    $('#btn-generar-pdf').on('click', function() {
+        if (!detalleActualParaPDF) return;
+        
+        var emp = detalleActualParaPDF.empaque;
+        var detalles = detalleActualParaPDF.detalles || [];
+        
+        // Agrupar por artículo para el PDF
+        var articulosAgrupados = {};
+        detalles.forEach(function(det) {
+            var key = det.codart;
+            if (!articulosAgrupados[key]) {
+                articulosAgrupados[key] = {
+                    codart: det.codart,
+                    descripcion: det.descripcion,
+                    requerido: 0,
+                    pickeado: 0,
+                    pendiente: 0,
+                    estado: det.estado,
+                    lotes: det.lotes,
+                    pallets: det.pallets
+                };
+            }
+            articulosAgrupados[key].requerido += det.requerido;
+            articulosAgrupados[key].pickeado += det.pickeado;
+            articulosAgrupados[key].pendiente += det.pendiente;
+            if (det.lotes && !articulosAgrupados[key].lotes) {
+                articulosAgrupados[key].lotes = det.lotes;
+            }
+        });
+        
+        // Construir HTML para PDF
+        var htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Empaque ${emp.numero}</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        margin: 20px;
+                        font-size: 12px;
+                    }
+                    h1 {
+                        color: #2c3e50;
+                        border-bottom: 2px solid #3498db;
+                        padding-bottom: 10px;
+                        font-size: 18px;
+                    }
+                    h2 {
+                        color: #34495e;
+                        margin-top: 20px;
+                        font-size: 14px;
+                    }
+                    .info-box {
+                        background: #f8f9fa;
+                        padding: 15px;
+                        border-radius: 5px;
+                        margin: 20px 0;
+                        border: 1px solid #ddd;
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin: 20px 0;
+                    }
+                    th {
+                        background: #3498db;
+                        color: white;
+                        padding: 8px;
+                        text-align: left;
+                        font-size: 11px;
+                    }
+                    td {
+                        padding: 6px;
+                        border-bottom: 1px solid #ddd;
+                        font-size: 10px;
+                    }
+                    .pendiente { background-color: #fff3cd; }
+                    .completado { background-color: #d4edda; }
+                    .footer {
+                        margin-top: 30px;
+                        font-size: 10px;
+                        color: #7f8c8d;
+                        text-align: center;
+                    }
+                </style>
+            </head>
+            <body>
+                <h1>Reporte de Empaque</h1>
+                
+                <div class="info-box">
+                    <p><strong>N° Empaque:</strong> ${emp.numero}</p>
+                    <p><strong>Cliente:</strong> ${emp.cliente}</p>
+                    <p><strong>Dirección:</strong> ${emp.direccion}</p>
+                    <p><strong>Fecha Creación:</strong> ${emp.fecha_creacion}</p>
+                    <p><strong>Estado:</strong> ${emp.estado}</p>
+                    <p><strong>Creado por:</strong> ${emp.usuario_creacion}</p>
+                    ${emp.fecha_palletizado ? `<p><strong>Fecha Palletizado:</strong> ${emp.fecha_palletizado}</p>` : ''}
+                </div>
+                
+                <h2>Resumen por Artículo</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Descripción</th>
+                            <th>Requerido</th>
+                            <th>Pickeado</th>
+                            <th>Pendiente</th>
+                            <th>Estado</th>
+                            <th>Lotes</th>
+                            <th>Pallets</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        for (var key in articulosAgrupados) {
+            var art = articulosAgrupados[key];
+            var clase = art.estado === 'COMPLETADO' ? 'completado' : 'pendiente';
+            htmlContent += `
+                <tr class="${clase}">
+                    <td>${art.codart}</td>
+                    <td>${art.descripcion}</td>
+                    <td>${art.requerido}</td>
+                    <td>${art.pickeado}</td>
+                    <td>${art.pendiente}</td>
+                    <td>${art.estado}</td>
+                    <td>${art.lotes || '-'}</td>
+                    <td>${art.pallets || '-'}</td>
+                </tr>
+            `;
+        }
+        
+        htmlContent += `
+                    </tbody>
+                </table>
+                
+                ${emp.observaciones ? `<div class="info-box"><strong>Observaciones:</strong><br>${emp.observaciones}</div>` : ''}
+                
+                <div class="footer">
+                    <p>Generado el ${new Date().toLocaleString()} - Sistema de Gestión de Empaques</p>
+                </div>
+            </body>
+            </html>
+        `;
+        
+        // Abrir ventana para imprimir/guardar PDF
+        var ventana = window.open('', '_blank');
+        ventana.document.write(htmlContent);
+        ventana.document.close();
+        ventana.print();
+    });
+    
+    // Evento: aplicar filtros
+    $('#btn-aplicar-filtros').on('click', aplicarFiltros);
+    
+    // Evento: limpiar filtros de creación
+    $('#btn-limpiar-filtros').on('click', function() {
+        $('#filtro-zona').val('todas');
+        $('#filtro-cliente').val('');
+        $('#filtro-articulo').val('');
+        mostrarProductosAgrupados(datosAgrupados);
+    });
+    
+    // Evento: aplicar filtros al listado
+    $('#btn-aplicar-filtros-lista').on('click', aplicarFiltrosLista);
+    
+    // Evento: limpiar filtros de listado
+    $('#btn-limpiar-filtros-lista').on('click', limpiarFiltrosLista);
+    
+    // Evento: cambiar pestaña
+    $('a[data-toggle="tab"]').on('shown.bs.tab', function(e) {
+        if (e.target.id === 'listar-tab') {
+            if (!$('#filtro-lista-estado').val()) {
+                $('#filtro-lista-estado').val('EN_PROCESO');
+            }
+            cargarListadoEmpaques();
+        }
+    });
+    
+    // Inicializar
+    cargarProductosAgrupados();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,223 @@
+/* Variables globales */
+:root {
+    --primary-color: #8B4513;  /* Chocolate marrón */
+    --secondary-color: #5D3A1A;
+    --success: #27ae60;
+    --warning: #f39c12;
+    --danger: #e74c3c;
+    --dark: #2c3e50;
+    --light: #f8f9fa;
+    --gradient-primary: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+    --gradient-success: linear-gradient(135deg, #27ae60, #2ecc71);
+    --gradient-warning: linear-gradient(135deg, #f39c12, #f1c40f);
+    --gradient-danger: linear-gradient(135deg, #e74c3c, #c0392b);
+    --gradient-dark: linear-gradient(135deg, #2c3e50, #34495e);
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.1);
+    --shadow-md: 0 4px 15px rgba(0,0,0,0.15);
+    --shadow-lg: 0 6px 20px rgba(0,0,0,0.2);
+    --border-radius: 12px;
+    --border-radius-sm: 8px;
+}
+
+/* Estilos generales */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--light);
+    min-height: 100vh;
+}
+
+/* Botones personalizados */
+.btn-custom {
+    border: none;
+    border-radius: 25px;
+    padding: 8px 20px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-custom:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.btn-custom i {
+    margin-right: 5px;
+}
+
+.btn-success-custom {
+    background: var(--gradient-success);
+    color: white;
+}
+
+.btn-warning-custom {
+    background: var(--gradient-warning);
+    color: white;
+}
+
+.btn-primary-custom {
+    background: var(--gradient-primary);
+    color: white;
+}
+
+.btn-danger-custom {
+    background: var(--gradient-danger);
+    color: white;
+}
+
+/* Tablas personalizadas */
+.table-custom {
+    background: white;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+}
+
+.table-custom thead th {
+    background: var(--gradient-dark);
+    color: white;
+    font-weight: 600;
+    border: none;
+    padding: 15px 10px;
+}
+
+.table-custom tbody td {
+    padding: 12px 10px;
+    vertical-align: middle;
+    border-bottom: 1px solid #eee;
+}
+
+.table-custom tbody tr:hover {
+    background-color: #f0f7ff !important;
+    transition: background-color 0.3s ease;
+}
+
+/* Badges personalizados */
+.badge-custom {
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-weight: 500;
+    font-size: 0.85rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.badge-success-custom {
+    background: var(--gradient-success);
+    color: white;
+}
+
+.badge-danger-custom {
+    background: var(--gradient-danger);
+    color: white;
+}
+
+.badge-warning-custom {
+    background: var(--gradient-warning);
+    color: white;
+}
+
+.badge-info-custom {
+    background: var(--gradient-primary);
+    color: white;
+}
+
+/* Cards personalizadas */
+.card-custom {
+    border: none;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.3s ease;
+}
+
+.card-custom:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lg);
+}
+
+.card-custom .card-header {
+    background: var(--gradient-dark);
+    color: white;
+    border-radius: var(--border-radius) var(--border-radius) 0 0 !important;
+    padding: 15px 20px;
+}
+
+.card-custom .card-body {
+    padding: 20px;
+}
+
+/* Inputs personalizados */
+.input-custom {
+    border: 2px solid #e0e0e0;
+    border-radius: 25px;
+    padding: 10px 20px;
+    transition: all 0.3s ease;
+}
+
+.input-custom:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+    outline: none;
+}
+
+/* Checkbox personalizado */
+.checkbox-custom {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: var(--primary);
+}
+
+/* Contador */
+.contador-custom {
+    background: var(--gradient-dark);
+    color: white;
+    padding: 8px 15px;
+    border-radius: 25px;
+    font-weight: 600;
+    box-shadow: var(--shadow-sm);
+}
+
+.fila-reservada {
+    background-color: #e8f4f8 !important;
+}
+
+.fila-reservada:hover {
+    background-color: #d4e8f0 !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .table-custom {
+        font-size: 0.9rem;
+    }
+    
+    .btn-custom {
+        padding: 6px 15px;
+        font-size: 0.9rem;
+    }
+}
+
+.chip {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    border-radius: 50px;
+    font-size: 0.9rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.chip:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.eliminar-chip {
+    background: none;
+    border: none;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.3s ease;
+}
+
+.eliminar-chip:hover {
+    opacity: 1;
+}

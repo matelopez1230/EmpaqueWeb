@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4" style="color: #2c3e50;">
+        <i class="fas fa-box-open mr-2"></i>Desempacar
+    </h2>
+
+    <div class="row">
+        <!-- Panel izquierdo: Empaques -->
+        <div class="col-md-4">
+            <div class="card card-custom">
+                <div class="card-header bg-primary-custom text-white">
+                    <h5 class="mb-0"><i class="fas fa-boxes mr-2"></i>Empaques</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div id="empaques-lista" class="list-group list-group-flush" style="max-height: 500px; overflow-y: auto;">
+                        <div class="list-group-item text-center">
+                            <i class="fas fa-spinner fa-spin"></i> Cargando empaques...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel derecho: Productos -->
+        <div class="col-md-8">
+            <div class="card card-custom">
+                <div class="card-header bg-success-custom text-white">
+                    <h5 class="mb-0"><i class="fas fa-list mr-2"></i>Productos del Empaque</h5>
+                </div>
+                <div class="card-body">
+                    <div id="productos-container">
+                        <div class="text-center text-muted">
+                            Seleccione un empaque para ver los productos
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para confirmar desempacar -->
+<div class="modal fade" id="modalConfirmar" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning-custom text-white">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle mr-2"></i>Confirmar Desempacar</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning" id="modal-info">
+                    <strong>Producto:</strong> <span id="modal-producto"></span><br>
+                    <strong>Cantidad:</strong> <span id="modal-cantidad"></span>
+                </div>
+                <div class="form-group">
+                    <label for="motivo">Motivo:</label>
+                    <textarea id="motivo" class="form-control" rows="2" placeholder="Ingrese el motivo..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger-custom" id="btn-confirmar">
+                    <i class="fas fa-trash mr-1"></i>Desempacar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.empaque-item.active {
+    border-left: 4px solid #007bff;
+    background-color: #e3f2fd;
+}
+.producto-item {
+    transition: background-color 0.2s ease;
+}
+.producto-item:hover {
+    background-color: #f8f9fa;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof $ === 'undefined') {
+        console.error('jQuery no está cargado');
+        return;
+    }
+    
+    console.log('Desempacar iniciado');
+    
+    var empaqueSeleccionado = null;
+    var productoSeleccionado = null;
+    
+    // Cargar empaques disponibles
+    function cargarEmpaques() {
+        $('#empaques-lista').html('<div class="list-group-item text-center"><i class="fas fa-spinner fa-spin"></i> Cargando empaques...</div>');
+        
+        $.get('/desempacar/empaques-disponibles')
+            .done(function(data) {
+                var container = $('#empaques-lista');
+                container.empty();
+                
+                if (!data || data.length === 0) {
+                    container.html('<div class="list-group-item text-center text-muted">No hay empaques disponibles para desempacar</div>');
+                    return;
+                }
+                
+                data.forEach(function(emp) {
+                    container.append(`
+                        <a href="#" class="list-group-item list-group-item-action empaque-item" 
+                           data-id="${emp.id}" data-numero="${emp.numero}">
+                            <strong>${emp.numero}</strong><br>
+                            <small>${emp.cliente}</small>
+                        </a>
+                    `);
+                });
+            })
+            .fail(function(xhr) {
+                console.error('Error cargando empaques:', xhr.status);
+                $('#empaques-lista').html('<div class="list-group-item text-center text-danger">Error al cargar empaques</div>');
+            });
+    }
+    
+    // Cargar productos de un empaque
+    function cargarProductos(id_empaque) {
+        $('#productos-container').html('<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando productos...</div>');
+        
+        $.get(`/desempacar/productos-empaque/${id_empaque}`)
+            .done(function(data) {
+                var container = $('#productos-container');
+                container.empty();
+                
+                if (!data || data.length === 0) {
+                    container.html(`
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            No hay productos disponibles para desempacar en este empaque.
+                        </div>
+                    `);
+                    return;
+                }
+                
+                var html = '<div class="list-group">';
+                data.forEach(function(prod) {
+                    html += `
+                        <div class="list-group-item producto-item" data-id="${prod.id_detalle}" 
+                             data-codart="${prod.codart}" data-cantidad="${prod.cantidad_requerida}">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>${prod.codart}</strong> - ${prod.descripcion}<br>
+                                    <small class="text-muted">Cantidad: ${prod.cantidad_requerida}</small>
+                                </div>
+                                <button class="btn btn-sm btn-danger-custom btn-desempacar">
+                                    <i class="fas fa-box-open mr-1"></i>Desempacar
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                container.html(html);
+            })
+            .fail(function(xhr) {
+                console.error('Error cargando productos:', xhr.status);
+                $('#productos-container').html('<div class="alert alert-danger">Error al cargar productos</div>');
+            });
+    }
+    
+    // Evento: seleccionar empaque
+    $(document).on('click', '.empaque-item', function(e) {
+        e.preventDefault();
+        $('.empaque-item').removeClass('active');
+        $(this).addClass('active');
+        
+        empaqueSeleccionado = $(this).data('id');
+        console.log('Empaque seleccionado:', empaqueSeleccionado);
+        cargarProductos(empaqueSeleccionado);
+    });
+    
+    // Evento: desempacar producto
+    $(document).on('click', '.btn-desempacar', function() {
+        var item = $(this).closest('.producto-item');
+        productoSeleccionado = {
+            id: item.data('id'),
+            codart: item.data('codart'),
+            cantidad: item.data('cantidad')
+        };
+        
+        $('#modal-producto').text(`${productoSeleccionado.codart}`);
+        $('#modal-cantidad').text(`${productoSeleccionado.cantidad}`);
+        $('#motivo').val('');
+        $('#modalConfirmar').modal('show');
+    });
+    
+    // Evento: confirmar desempacar
+    $('#btn-confirmar').on('click', function() {
+        if (!productoSeleccionado) return;
+        
+        var motivo = $('#motivo').val();
+        
+        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i>Procesando...');
+        
+        $.ajax({
+            url: '/desempacar/desempacar',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({
+                id_empaque_detalle: productoSeleccionado.id,
+                id_empaque: empaqueSeleccionado,
+                motivo: motivo
+            }),
+            success: function(data) {
+                if (data.success) {
+                    alert(data.mensaje);
+                    $('#modalConfirmar').modal('hide');
+                    // Recargar productos del empaque actual
+                    if (empaqueSeleccionado) {
+                        cargarProductos(empaqueSeleccionado);
+                    }
+                    // Recargar empaques disponibles
+                    cargarEmpaques();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            },
+            error: function(xhr) {
+                alert('Error de comunicación: ' + xhr.status);
+            },
+            complete: function() {
+                $('#btn-confirmar').prop('disabled', false).html('<i class="fas fa-trash mr-1"></i>Desempacar');
+            }
+        });
+    });
+    
+    // Inicializar
+    cargarEmpaques();
+});
+</script>
+{% endblock %}
