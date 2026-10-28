@@ -1,0 +1,161 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+    <a href="{{ url_for('especificaciones.panel') }}" class="btn btn-secondary mr-3">
+        <i class="fas fa-arrow-left"></i>
+    </a>
+    <h2 style="color: #2c3e50; margin: 0;">
+        <i class="{{ tipo_info.icono }} mr-2 text-{{ tipo_info.color }}"></i>
+        {{ tipo_info.nombre }}
+    </h2>
+    <div class="ml-auto">
+        <a href="{{ url_for('especificaciones.formulario', tipo=tipo) }}"
+           class="btn btn-success-custom">
+            <i class="fas fa-plus mr-1"></i>Crear desde cero
+        </a>
+    </div>
+</div>
+
+{# ─── Filtros ─── #}
+<div class="card card-custom mb-3">
+    <div class="card-body">
+        <div class="form-row align-items-end">
+            <div class="form-group col-md-10 mb-0">
+                <label><i class="fas fa-search mr-1"></i>Buscar</label>
+                <input type="text" id="input-busqueda"
+                       class="form-control input-custom"
+                       placeholder="Código base o completo..."
+                       autofocus>
+            </div>
+            <div class="form-group col-md-2 mb-0">
+                <button class="btn btn-primary-custom btn-block" id="btn-buscar">
+                    <i class="fas fa-search mr-1"></i>Buscar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ─── Resultados ─── #}
+<div class="card card-custom">
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-list mr-2"></i>Recientes</h5>
+        <span id="contador" class="badge badge-light">0</span>
+    </div>
+    <div class="card-body p-0">
+        <div id="resultados-container">
+            <div class="text-center text-muted p-4">
+                <i class="fas fa-spinner fa-spin"></i> Cargando...
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
+
+{% block scripts %}
+
+
+<script>
+var TIPO      = "{{ tipo }}";
+var URL_VER   = "{{ url_for('especificaciones.ver', id_esp=0) }}".replace('/0', '');
+var URL_NUEVA = "{{ url_for('especificaciones.nueva_version', id_esp=0) }}".replace('/0', '');
+var URL_CLONE = "{{ url_for('especificaciones.crear_a_partir_de', id_esp=0) }}".replace('/0', '');
+var URL_DESC  = "{{ url_for('especificaciones.descargar', id_esp=0) }}".replace('/0', '');
+
+function escapar(s) {
+    return (s || '').toString()
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function buscar() {
+    var q = $('#input-busqueda').val().trim();
+    $('#resultados-container').html(
+        '<div class="text-center text-muted p-4">'
+        + '<i class="fas fa-spinner fa-spin"></i> Buscando...</div>'
+    );
+
+    $.get('/especificaciones/buscar', { tipo: TIPO, q: q })
+        .done(function (resp) {
+            mostrarResultados(resp.resultados || []);
+        })
+        .fail(function () {
+            $('#resultados-container').html(
+                '<div class="text-center text-danger p-4">Error al buscar</div>'
+            );
+        });
+}
+
+function mostrarResultados(items) {
+    var cont = $('#resultados-container');
+    $('#contador').text(items.length);
+
+    if (!items.length) {
+        cont.html(
+            '<div class="text-center text-muted p-4">'
+            + '<i class="fas fa-search fa-2x mb-2"></i>'
+            + '<p>No se encontraron especificaciones.</p>'
+            + '<a href="' + "{{ url_for('especificaciones.formulario', tipo=tipo) }}" + '" '
+            + 'class="btn btn-success-custom">'
+            + '<i class="fas fa-plus mr-1"></i>Crear una nueva</a>'
+            + '</div>'
+        );
+        return;
+    }
+
+    var html = '<div class="table-responsive"><table class="table table-custom mb-0">'
+             + '<thead><tr>'
+             + '<th>Código</th>'
+             + '<th width="90">Rev</th>'
+             + '<th>Usuario</th>'
+             + '<th>Fecha y hora</th>'
+             + '<th class="text-right">Acciones</th>'
+             + '</tr></thead><tbody>';
+
+    items.forEach(function (it) {
+        var rev = ('0' + it.revision).slice(-2);
+        var badgeActiva = it.es_ultima
+            ? '<span class="badge badge-success ml-1" title="Última versión">activa</span>'
+            : '';
+
+        // Fecha y hora debajo del código
+        var fecha = escapar(it.fecha_generacion || '');
+
+        html += '<tr>'
+             +  '<td><strong>' + escapar(it.codigo_completo) + '</strong><br>'
+             +      '<small class="text-muted">' + fecha + '</small></td>'
+             +  '<td><span class="badge badge-secondary">' + rev + '</span>' + badgeActiva + '</td>'
+             +  '<td><small>' + escapar(it.usuario_nombre) + '</small></td>'
+             +  '<td class="small text-muted">' + fecha + '</td>'
+             +  '<td class="text-right text-nowrap">'
+             +    '<a href="' + URL_VER   + '/' + it.id + '" '
+             +       'class="btn btn-sm btn-info-custom" title="Ver PDF">'
+             +      '<i class="fas fa-eye"></i></a> '
+             +    '<a href="' + URL_NUEVA + '/' + it.id + '" '
+             +       'class="btn btn-sm btn-warning-custom" title="Nueva versión basada en esta">'
+             +      '<i class="fas fa-code-branch"></i></a> '
+             +    '<a href="' + URL_CLONE + '/' + it.id + '" '
+             +       'class="btn btn-sm btn-secondary" title="Crear a partir de esta">'
+             +      '<i class="fas fa-clone"></i></a> '
+             +    '<a href="' + URL_DESC  + '/' + it.id + '" '
+             +       'class="btn btn-sm btn-success-custom" title="Descargar">'
+             +      '<i class="fas fa-download"></i></a>'
+             +  '</td>'
+             + '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    cont.html(html);
+}
+
+// Eventos
+$('#btn-buscar').on('click', buscar);
+$('#input-busqueda').on('keypress', function (e) {
+    if (e.which === 13) { e.preventDefault(); buscar(); }
+});
+
+$(document).ready(buscar);
+</script>
+{% endblock %}

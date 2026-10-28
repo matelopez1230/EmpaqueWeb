@@ -1,0 +1,432 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+    <a href="{{ url_for('especificaciones.panel') }}" class="btn btn-secondary mr-3">
+        <i class="fas fa-arrow-left"></i>
+    </a>
+    <h2 style="color: #2c3e50; margin: 0;">
+        <i class="fas fa-file-pdf mr-2"></i>
+        {{ esp.codigo_completo }} <small class="text-muted">rev {{ '%02d'|format(esp.revision) }}</small>
+    </h2>
+    <div class="ml-auto">
+        <a href="{{ url_for('especificaciones.buscar_tipo', tipo=esp.tipo) }}"
+           class="btn btn-secondary">
+            <i class="fas fa-search mr-1"></i>Buscar similares
+        </a>
+        <a href="{{ url_for('especificaciones.descargar', id_esp=esp.id) }}" class="btn btn-success-custom">
+            <i class="fas fa-download mr-1"></i>Descargar
+        </a>
+        <button type="button" class="btn btn-info-custom"
+                data-toggle="modal" data-target="#modalEnviarCorreo">
+            <i class="fas fa-paper-plane mr-1"></i>Enviar por correo
+        </button>
+
+        <a href="{{ url_for('especificaciones.nueva_version', id_esp=esp.id) }}" class="btn btn-warning-custom">
+            <i class="fas fa-code-branch mr-1"></i>Nueva versión
+        </a>
+        <a href="{{ url_for('especificaciones.crear_a_partir_de', id_esp=esp.id) }}" class="btn btn-secondary">
+            <i class="fas fa-clone mr-1"></i>Crear a partir de
+        </a>
+        <button type="button" class="btn btn-danger-custom" data-toggle="modal" data-target="#modalEliminar">
+            <i class="fas fa-trash mr-1"></i>Eliminar
+        </button>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mb-3">
+        <div class="card card-custom h-100">
+            <div class="card-body p-0">
+                <iframe src="{{ url_for('especificaciones.raw', id_esp=esp.id) }}"
+                        style="width:100%; height:80vh; border:none; border-radius:12px;"></iframe>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card card-custom mb-3">
+            <div class="card-header bg-primary-custom text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle mr-2"></i>Información</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-1"><strong>Tipo:</strong> {{ tipos[esp.tipo].nombre }}</p>
+                <p class="mb-1"><strong>Código:</strong> {{ esp.codigo_completo }}</p>
+                <p class="mb-1"><strong>Revisión:</strong> {{ '%02d'|format(esp.revision) }}</p>
+                {% if esp.titulo %}<p class="mb-1"><strong>Título:</strong> {{ esp.titulo }}</p>{% endif %}
+                {% if esp.cliente %}<p class="mb-1"><strong>Cliente:</strong> {{ esp.cliente }}</p>{% endif %}
+                <hr>
+                <p class="mb-1"><strong>Generado por:</strong> {{ esp.usuario_nombre }}</p>
+                <p class="mb-1"><strong>Fecha:</strong> {{ esp.fecha_generacion }}</p>
+            </div>
+        </div>
+
+        <div class="card card-custom">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="fas fa-code-branch mr-2"></i>Versiones de {{ esp.codigo_base }}</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush" style="max-height: 400px; overflow-y: auto;">
+                    {% for v in familia %}
+                        <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center
+                                    {% if v.id == esp.id %}active{% endif %}"
+                             style="cursor: pointer;"
+                             onclick="if(!event.target.closest('.btn-eliminar-mini')) window.location='{{ url_for('especificaciones.ver', id_esp=v.id) }}';">
+                            <div>
+                                <strong>{{ v.codigo_completo }}</strong>
+                                <span class="badge badge-secondary ml-1">rev {{ '%02d'|format(v.revision) }}</span>
+                                {% if loop.first %}
+                                    <span class="badge badge-success ml-1" title="Última versión">activa</span>
+                                {% endif %}
+                                <br>
+                                <small class="{% if v.id == esp.id %}text-white-50{% else %}text-muted{% endif %}">
+                                    {{ v.usuario_nombre }} — {{ v.fecha_generacion[:10] }}
+                                </small>
+                            </div>
+                            {% if v.id != esp.id %}
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-danger btn-eliminar-mini"
+                                        data-toggle="modal"
+                                        data-target="#modalEliminarOtra"
+                                        data-id="{{ v.id }}"
+                                        data-nombre="{{ v.codigo_completo }} rev {{ '%02d'|format(v.revision) }}"
+                                        title="Eliminar esta versión">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════ #}
+{# MODAL: Eliminar actual                         #}
+{# ═══════════════════════════════════════════════ #}
+<div class="modal fade" id="modalEliminar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>Confirmar eliminación
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>¿Eliminar <strong>{{ esp.codigo_completo }} rev {{ '%02d'|format(esp.revision) }}</strong>?</p>
+                <p class="text-muted small mb-0">
+                    <strong class="text-danger">Esta acción no se puede deshacer.</strong>
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                    Cancelar
+                </button>
+                <form method="POST"
+                      action="{{ url_for('especificaciones.eliminar', id_esp=esp.id) }}"
+                      style="display:inline;">
+                    <button type="submit" class="btn btn-danger-custom">
+                        <i class="fas fa-trash mr-1"></i>Eliminar
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════ #}
+{# MODAL: Eliminar otra versión                   #}
+{# ═══════════════════════════════════════════════ #}
+<div class="modal fade" id="modalEliminarOtra" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>Confirmar eliminación
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>¿Eliminar <strong id="eliminar-otra-nombre"></strong>?</p>
+                <p class="text-muted small mb-0">Esta acción no se puede deshacer.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <form method="POST" id="form-eliminar-otra" style="display:inline;">
+                    <button type="submit" class="btn btn-danger-custom">
+                        <i class="fas fa-trash mr-1"></i>Eliminar
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════ #}
+{# MODAL: Enviar por correo                       #}
+{# ═══════════════════════════════════════════════ #}
+<div class="modal fade" id="modalEnviarCorreo" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="form-enviar-correo" autocomplete="off">
+                <div class="modal-header bg-info-custom text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-paper-plane mr-2"></i>Enviar por correo
+                    </h5>
+                    <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">
+                        Se enviará <strong>{{ esp.codigo_completo }} rev {{ '%02d'|format(esp.revision) }}</strong>
+                        como adjunto, generado desde los datos actuales del documento.
+                    </p>
+
+                    <div class="form-group">
+                        <label>De</label>
+                        <div class="form-control-plaintext input-custom py-1 px-2 bg-light rounded">
+                            <span id="enviar-remitente-nombre">—</span>
+                            &lt;<span id="enviar-remitente-email" class="text-muted">—</span>&gt;
+                            <a href="#" data-toggle="modal" data-target="#modalMiEmail"
+                               data-dismiss="modal" class="small ml-2">
+                                <i class="fas fa-cog"></i> Cambiar
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="form-group position-relative">
+                        <label for="enviar-destinatario">Destinatario <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control input-custom"
+                               id="enviar-destinatario" required
+                               placeholder="cliente@ejemplo.com">
+                        <div id="enviar-sugerencias"
+                             class="list-group position-absolute w-100 shadow"
+                             style="z-index:1080; display:none; max-height:220px; overflow-y:auto;"></div>
+                        <div id="enviar-destinatario-indicador" class="form-text mt-1"></div>
+                    </div>
+
+                    <div class="form-group mb-0">
+                        <label for="enviar-mensaje">Mensaje (opcional)</label>
+                        <textarea class="form-control input-custom" id="enviar-mensaje" rows="3"
+                                  placeholder="Adjunto encontrará la especificación solicitada..."></textarea>
+                    </div>
+
+                    <div id="enviar-feedback" class="alert mt-3 mb-0" style="display:none;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-info-custom" id="btn-enviar-correo-confirmar">
+                        <i class="fas fa-paper-plane mr-1"></i>Enviar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('modalEliminarOtra').addEventListener('show.bs.modal', function (event) {
+    var boton  = event.relatedTarget;
+    var id     = boton.getAttribute('data-id');
+    var nombre = boton.getAttribute('data-nombre');
+    document.getElementById('eliminar-otra-nombre').textContent = nombre;
+    document.getElementById('form-eliminar-otra').action =
+        '/especificaciones/eliminar/' + id;
+});
+</script>
+
+
+<script>
+(function () {
+    var modal    = document.getElementById('modalEnviarCorreo');
+    if (!modal) return;
+    var form     = document.getElementById('form-enviar-correo');
+    var input    = document.getElementById('enviar-destinatario');
+    var sugsBox  = document.getElementById('enviar-sugerencias');
+    var indicador= document.getElementById('enviar-destinatario-indicador');
+    var feedback = document.getElementById('enviar-feedback');
+    var btn      = document.getElementById('btn-enviar-correo-confirmar');
+    var remEmail = document.getElementById('enviar-remitente-email');
+    var remNombre= document.getElementById('enviar-remitente-nombre');
+
+    var timerBusqueda = null;
+    var idEnvioActual = null;
+    var pollingTimer  = null;
+
+    function cargarRemitente() {
+        fetch('{{ url_for("especificaciones.api_mi_remitente") }}')
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    remEmail.textContent  = d.email || '(sin configurar)';
+                    remNombre.textContent = d.nombre || '';
+                    if (!d.email) {
+                        feedback.style.display = '';
+                        feedback.className = 'alert alert-warning mt-3 mb-0';
+                        feedback.innerHTML = 'Configurá tu email de envío antes de continuar.';
+                    }
+                }
+            });
+    }
+
+    function renderSugerencias(contactos) {
+        if (!contactos.length) {
+            sugsBox.style.display = 'none';
+            return;
+        }
+        var html = '';
+        contactos.forEach(function (c) {
+            var ini = (c.nombre || c.email).substring(0, 1).toUpperCase();
+            html +=
+                '<button type="button" class="list-group-item list-group-item-action py-2 px-3" ' +
+                'data-email="' + c.email.replace(/"/g, '&quot;') + '">' +
+                '<div class="d-flex align-items-center">' +
+                '<span class="badge badge-info mr-2">' + ini + '</span>' +
+                '<div class="flex-grow-1">' +
+                '<div><strong>' + (c.nombre || c.email) + '</strong></div>' +
+                '<small class="text-muted">' + c.email +
+                ' · ' + c.total_envios + ' envío(s)</small>' +
+                '</div></div></button>';
+        });
+        sugsBox.innerHTML = html;
+        sugsBox.style.display = '';
+        sugsBox.querySelectorAll('button').forEach(function (b) {
+            b.addEventListener('click', function () {
+                input.value = b.getAttribute('data-email');
+                sugsBox.style.display = 'none';
+                verificarExistente();
+            });
+        });
+    }
+
+    function verificarExistente() {
+        var q = input.value.trim().toLowerCase();
+        if (!q || q.indexOf('@') === -1) { indicador.innerHTML = ''; return; }
+        fetch('{{ url_for("especificaciones.api_contactos") }}?q=' + encodeURIComponent(q))
+            .then(r => r.json())
+            .then(d => {
+                var exacto = (d.contactos || []).find(function (c) {
+                    return c.email.toLowerCase() === q;
+                });
+                if (exacto) {
+                    indicador.innerHTML = '<span class="text-success">' +
+                        '<i class="fas fa-check-circle mr-1"></i>Contacto conocido (' +
+                        exacto.total_envios + ' envío/s)</span>';
+                } else {
+                    indicador.innerHTML = '<span class="text-info">' +
+                        '<i class="fas fa-plus-circle mr-1"></i>Se registrará como nuevo contacto</span>';
+                }
+            });
+    }
+
+    input.addEventListener('input', function () {
+        clearTimeout(timerBusqueda);
+        var q = input.value.trim();
+        if (q.length < 2) { sugsBox.style.display = 'none'; indicador.innerHTML = ''; return; }
+        timerBusqueda = setTimeout(function () {
+            fetch('{{ url_for("especificaciones.api_contactos") }}?q=' + encodeURIComponent(q))
+                .then(r => r.json())
+                .then(d => { renderSugerencias(d.contactos || []); verificarExistente(); });
+        }, 200);
+    });
+
+    input.addEventListener('blur', function () {
+        setTimeout(function () { sugsBox.style.display = 'none'; }, 200);
+    });
+
+    function setFeedback(msg, clase) {
+        feedback.style.display = '';
+        feedback.className = 'alert ' + clase + ' mt-3 mb-0';
+        feedback.innerHTML = msg;
+    }
+
+    function pollEstado() {
+        if (!idEnvioActual) return;
+        fetch('/especificaciones/api/envio/' + idEnvioActual + '/estado')
+            .then(r => r.json())
+            .then(function (d) {
+                if (!d.success) {
+                    clearInterval(pollingTimer);
+                    setFeedback('Error consultando estado', 'alert-danger');
+                    return;
+                }
+                if (d.estado === 'pendiente') {
+                    setFeedback('<i class="fas fa-hourglass-half mr-1"></i>En cola de envío…', 'alert-info');
+                } else if (d.estado === 'enviando') {
+                    setFeedback('<i class="fas fa-spinner fa-spin mr-1"></i>Enviando…', 'alert-info');
+                } else if (d.estado === 'enviado') {
+                    clearInterval(pollingTimer);
+                    setFeedback('<i class="fas fa-check mr-1"></i>Correo enviado a ' + d.destinatario, 'alert-success');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i>Enviar';
+                    setTimeout(function () {
+                        $('#modalEnviarCorreo').modal('hide');
+                    }, 1600);
+                } else if (d.estado === 'error') {
+                    clearInterval(pollingTimer);
+                    setFeedback('<i class="fas fa-exclamation-triangle mr-1"></i>' +
+                                (d.error || 'Error'), 'alert-danger');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i>Reintentar';
+                }
+            });
+    }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var destinatario = input.value.trim();
+        if (!destinatario) {
+            setFeedback('Ingresá un destinatario.', 'alert-warning');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i>Procesando…';
+        setFeedback('<i class="fas fa-spinner fa-spin mr-1"></i>Enviando a la cola…', 'alert-info');
+
+        fetch('{{ url_for("especificaciones.enviar_por_correo", id_esp=esp.id) }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                destinatario: destinatario,
+                mensaje: document.getElementById('enviar-mensaje').value.trim()
+            })
+        })
+        .then(r => r.json().then(d => ({ ok: r.ok, data: d })))
+        .then(function (res) {
+            if (!res.data.success) {
+                setFeedback('<i class="fas fa-exclamation-triangle mr-1"></i>' +
+                            (res.data.error || 'Error'), 'alert-danger');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i>Enviar';
+                return;
+            }
+            idEnvioActual = res.data.id_envio;
+            clearInterval(pollingTimer);
+            pollingTimer = setInterval(pollEstado, 800);
+            pollEstado();
+        })
+        .catch(function () {
+            setFeedback('Error de comunicación con el servidor.', 'alert-danger');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i>Enviar';
+        });
+    });
+
+    $(modal).on('show.bs.modal', function () {
+        form.reset();
+        feedback.style.display = 'none';
+        indicador.innerHTML = '';
+        sugsBox.style.display = 'none';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i>Enviar';
+        clearInterval(pollingTimer);
+        idEnvioActual = null;
+        cargarRemitente();
+    });
+
+    $(modal).on('hidden.bs.modal', function () {
+        clearInterval(pollingTimer);
+    });
+})();
+</script>
+{% endblock %}

@@ -19,17 +19,20 @@
                     <thead>
                         <tr>
                             <th>ID</th>
-                            <th>Usuario</th>
+                            <th>Usuario (Login)</th>
+                            <th>Nombre Completo</th>
+                            <th>Email</th>
                             <th>Activo</th>
                             <th>Fecha Alta</th>
                             <th>Acciones</th>
-                         </thead>
+                        </tr>
+                    </thead>
                     <tbody id="lista-usuarios">
                         <tr>
-                            <td colspan="5" class="text-center">
+                            <td colspan="7" class="text-center">
                                 <i class="fas fa-spinner fa-spin"></i> Cargando usuarios...
-                             ‐
-                         ‐
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -47,10 +50,30 @@
             </div>
             <div class="modal-body">
                 <input type="hidden" id="usuario-id">
+                
                 <div class="form-group">
-                    <label for="usuario-nombre">Nombre de Usuario:</label>
-                    <input type="text" id="usuario-nombre" class="form-control input-custom" placeholder="Ingrese nombre">
+                    <label for="usuario-username">Nombre de Usuario (Login):</label>
+                    <input type="text" id="usuario-username" class="form-control input-custom" placeholder="Ingrese nombre de login">
                 </div>
+
+                <hr>
+                <h6 class="text-muted mb-3">Datos Personales</h6>
+                <div class="row">
+                    <div class="col-md-6 form-group">
+                        <label for="usuario-nombre">Nombre:</label>
+                        <input type="text" id="usuario-nombre" class="form-control input-custom" placeholder="Ej: Juan">
+                    </div>
+                    <div class="col-md-6 form-group">
+                        <label for="usuario-apellido">Apellido:</label>
+                        <input type="text" id="usuario-apellido" class="form-control input-custom" placeholder="Ej: Pérez">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="usuario-email">Correo Electrónico:</label>
+                    <input type="email" id="usuario-email" class="form-control input-custom" placeholder="ejemplo@chocolatesmapsa.com">
+                </div>
+
+                <hr>
                 <div class="form-group" id="password-group">
                     <label for="usuario-password">Contraseña:</label>
                     <input type="password" id="usuario-password" class="form-control input-custom" placeholder="Mínimo 4 caracteres">
@@ -72,6 +95,7 @@
     </div>
 </div>
 
+<!-- (Los modales de Contraseña y Menús se mantienen exactamente igual que en tu archivo original) -->
 <!-- Modal Cambiar Contraseña -->
 <div class="modal fade" id="modalPassword" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -145,7 +169,7 @@ $(document).ready(function() {
     
     // Cargar lista de usuarios
     function cargarUsuarios() {
-        $('#lista-usuarios').html('<tr><td colspan="5" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>');
+        $('#lista-usuarios').html('<tr><td colspan="7" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>');
         
         $.get('/usuarios/listar')
             .done(function(data) {
@@ -153,29 +177,48 @@ $(document).ready(function() {
                 tbody.empty();
                 
                 if (!data || data.length === 0) {
-                    tbody.append('<tr><td colspan="5" class="text-center">No hay usuarios registrados</td></tr>');
+                    tbody.append('<tr><td colspan="7" class="text-center">No hay usuarios registrados</td></tr>');
                     return;
                 }
                 
                 data.forEach(function(user) {
                     var activoBadge = user.activo ? '<span class="badge badge-success">Activo</span>' : '<span class="badge badge-secondary">Inactivo</span>';
+                    
+                    // Armamos el nombre completo
+                    var nombreCompleto = '';
+                    if (user.nombre || user.apellido) {
+                        nombreCompleto = `${user.nombre || ''} ${user.apellido || ''}`.trim();
+                    } else {
+                        nombreCompleto = '<span class="text-muted font-italic">-</span>';
+                    }
+
+                    var emailStr = user.email ? user.email : '<span class="text-muted font-italic">-</span>';
+
                     tbody.append(`
                         <tr>
-                            <td>${user.id}</td>
-                            <td><strong>${user.nombre}</strong></td>
-                            <td>${activoBadge}</td>
-                            <td>${user.fecha_alta}</td>
-                            <td>
-                                <button class="btn btn-sm btn-info-custom btn-menus" data-id="${user.id}" data-nombre="${user.nombre}" title="Asignar Menús">
+                            <td class="align-middle">${user.id}</td>
+                            <td class="align-middle"><strong>${user.nombre_usuario}</strong></td>
+                            <td class="align-middle">${nombreCompleto}</td>
+                            <td class="align-middle">${emailStr}</td>
+                            <td class="align-middle">${activoBadge}</td>
+                            <td class="align-middle">${user.fecha_alta}</td>
+                            <td class="align-middle">
+                                <button class="btn btn-sm btn-info-custom btn-menus" data-id="${user.id}" data-nombre="${user.nombre_usuario}" title="Asignar Menús">
                                     <i class="fas fa-bars"></i>
                                 </button>
                                 <button class="btn btn-sm btn-warning-custom btn-password" data-id="${user.id}" title="Cambiar Contraseña">
                                     <i class="fas fa-key"></i>
                                 </button>
-                                <button class="btn btn-sm btn-primary-custom btn-editar" data-id="${user.id}" data-nombre="${user.nombre}" data-activo="${user.activo}">
+                                <button class="btn btn-sm btn-primary-custom btn-editar" 
+                                        data-id="${user.id}" 
+                                        data-username="${user.nombre_usuario}" 
+                                        data-nombre="${user.nombre}" 
+                                        data-apellido="${user.apellido}" 
+                                        data-email="${user.email}" 
+                                        data-activo="${user.activo}">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                <button class="btn btn-sm btn-danger-custom btn-eliminar" data-id="${user.id}" data-nombre="${user.nombre}">
+                                <button class="btn btn-sm btn-danger-custom btn-eliminar" data-id="${user.id}" data-nombre="${user.nombre_usuario}">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </td>
@@ -184,11 +227,11 @@ $(document).ready(function() {
                 });
             })
             .fail(function() {
-                $('#lista-usuarios').html('<tr><td colspan="5" class="text-center text-danger">Error al cargar usuarios</td></tr>');
+                $('#lista-usuarios').html('<tr><td colspan="7" class="text-center text-danger">Error al cargar usuarios</td></tr>');
             });
     }
     
-    // Cargar menús del usuario
+    // Cargar menús del usuario (SIN CAMBIOS)
     function cargarMenus(usuarioId, usuarioNombre) {
         $('#menus-usuario-id').val(usuarioId);
         $('#menus-usuario-nombre').text(usuarioNombre);
@@ -198,7 +241,6 @@ $(document).ready(function() {
         
         $.get(`/usuarios/detalle/${usuarioId}`)
             .done(function(data) {
-                // Menús asignados
                 var asignadosHtml = '';
                 if (data.menus_asignados.length === 0) {
                     asignadosHtml = '<div class="list-group-item text-muted">Sin menús asignados</div>';
@@ -215,7 +257,6 @@ $(document).ready(function() {
                     });
                 }
                 
-                // Menús disponibles
                 var disponiblesHtml = '';
                 if (data.menus_disponibles.length === 0) {
                     disponiblesHtml = '<div class="list-group-item text-muted">No hay menús disponibles</div>';
@@ -244,7 +285,7 @@ $(document).ready(function() {
             });
     }
     
-    // Asignar menú
+    // Asignar menú (SIN CAMBIOS)
     function asignarMenu(usuarioId, menuId, menuNombre) {
         $.ajax({
             url: '/usuarios/asignar-menu',
@@ -259,13 +300,11 @@ $(document).ready(function() {
                     alert('Error: ' + data.error);
                 }
             },
-            error: function() {
-                alert('Error de comunicación');
-            }
+            error: function() { alert('Error de comunicación'); }
         });
     }
     
-    // Quitar menú
+    // Quitar menú (SIN CAMBIOS)
     function quitarMenu(usuarioId, menuId, menuNombre) {
         if (!confirm(`¿Quitar el menú "${menuNombre}" de este usuario?`)) return;
         
@@ -282,9 +321,7 @@ $(document).ready(function() {
                     alert('Error: ' + data.error);
                 }
             },
-            error: function() {
-                alert('Error de comunicación');
-            }
+            error: function() { alert('Error de comunicación'); }
         });
     }
     
@@ -293,7 +330,10 @@ $(document).ready(function() {
         modoEdicion = false;
         $('#modalUsuarioTitle').html('<i class="fas fa-user-plus mr-2"></i>Nuevo Usuario');
         $('#usuario-id').val('');
+        $('#usuario-username').val('');
         $('#usuario-nombre').val('');
+        $('#usuario-apellido').val('');
+        $('#usuario-email').val('');
         $('#usuario-password').val('');
         $('#usuario-activo').prop('checked', true);
         $('#password-group').show();
@@ -304,47 +344,56 @@ $(document).ready(function() {
     $(document).on('click', '.btn-editar', function() {
         modoEdicion = true;
         var id = $(this).data('id');
-        var nombre = $(this).data('nombre');
-        var activo = $(this).data('activo') === 1 || $(this).data('activo') === true;
         
         $('#modalUsuarioTitle').html('<i class="fas fa-user-edit mr-2"></i>Editar Usuario');
         $('#usuario-id').val(id);
-        $('#usuario-nombre').val(nombre);
-        $('#usuario-activo').prop('checked', activo);
+        $('#usuario-username').val($(this).data('username'));
+        $('#usuario-nombre').val($(this).data('nombre'));
+        $('#usuario-apellido').val($(this).data('apellido'));
+        $('#usuario-email').val($(this).data('email'));
+        $('#usuario-activo').prop('checked', $(this).data('activo') === 1 || $(this).data('activo') === true);
+        
         $('#password-group').hide();
         $('#modalUsuario').modal('show');
     });
     
-    // Evento: Guardar usuario
+    // Evento: Guardar usuario (CREAR / EDITAR)
     $('#btn-guardar-usuario').on('click', function() {
         var id = $('#usuario-id').val();
+        var username = $('#usuario-username').val().trim();
         var nombre = $('#usuario-nombre').val().trim();
+        var apellido = $('#usuario-apellido').val().trim();
+        var email = $('#usuario-email').val().trim();
         var password = $('#usuario-password').val();
         var activo = $('#usuario-activo').is(':checked');
         
-        if (!nombre) {
-            alert('Ingrese un nombre de usuario');
+        if (!username) {
+            alert('Ingrese un nombre de usuario (login)');
             return;
+        }
+        
+        if (!modoEdicion) {
+            if (!password) { alert('Ingrese una contraseña'); return; }
+            if (password.length < 4) { alert('La contraseña debe tener al menos 4 caracteres'); return; }
         }
         
         var url = modoEdicion ? `/usuarios/editar/${id}` : '/usuarios/crear';
-        var data = modoEdicion ? { nombre: nombre, activo: activo } : { nombre: nombre, password: password, activo: activo };
         
-        if (!modoEdicion && !password) {
-            alert('Ingrese una contraseña');
-            return;
-        }
-        
-        if (!modoEdicion && password.length < 4) {
-            alert('La contraseña debe tener al menos 4 caracteres');
-            return;
-        }
+        var payload = {
+            nombre_usuario: username,
+            nombre: nombre,
+            apellido: apellido,
+            email: email,
+            activo: activo
+        };
+
+        if (!modoEdicion) payload.password = password;
         
         $.ajax({
             url: url,
             method: 'POST',
             contentType: 'application/json',
-            data: JSON.stringify(data),
+            data: JSON.stringify(payload),
             success: function(data) {
                 if (data.success) {
                     alert(data.mensaje);
@@ -360,7 +409,7 @@ $(document).ready(function() {
         });
     });
     
-    // Evento: Cambiar contraseña
+    // Evento: Cambiar contraseña (SIN CAMBIOS)
     $(document).on('click', '.btn-password', function() {
         var id = $(this).data('id');
         $('#password-usuario-id').val(id);
@@ -374,20 +423,9 @@ $(document).ready(function() {
         var nueva = $('#password-nueva').val();
         var confirm = $('#password-confirm').val();
         
-        if (!nueva) {
-            alert('Ingrese una nueva contraseña');
-            return;
-        }
-        
-        if (nueva.length < 4) {
-            alert('La contraseña debe tener al menos 4 caracteres');
-            return;
-        }
-        
-        if (nueva !== confirm) {
-            alert('Las contraseñas no coinciden');
-            return;
-        }
+        if (!nueva) { alert('Ingrese una nueva contraseña'); return; }
+        if (nueva.length < 4) { alert('La contraseña debe tener al menos 4 caracteres'); return; }
+        if (nueva !== confirm) { alert('Las contraseñas no coinciden'); return; }
         
         $.ajax({
             url: `/usuarios/cambiar-password/${id}`,
@@ -402,9 +440,7 @@ $(document).ready(function() {
                     alert('Error: ' + data.error);
                 }
             },
-            error: function() {
-                alert('Error de comunicación');
-            }
+            error: function() { alert('Error de comunicación'); }
         });
     });
     
@@ -429,7 +465,7 @@ $(document).ready(function() {
         quitarMenu(usuarioId, menuId, menuNombre);
     });
     
-    // Evento: Eliminar usuario
+    // Evento: Eliminar usuario (SIN CAMBIOS)
     $(document).on('click', '.btn-eliminar', function() {
         var id = $(this).data('id');
         var nombre = $(this).data('nombre');
@@ -447,9 +483,7 @@ $(document).ready(function() {
                     alert('Error: ' + data.error);
                 }
             },
-            error: function() {
-                alert('Error de comunicación');
-            }
+            error: function() { alert('Error de comunicación'); }
         });
     });
     

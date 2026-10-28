@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div class="mb-2">
+            <h2 class="mb-1"><i class="fas fa-address-book mr-2" style="color: var(--primary-color);"></i>Contactos</h2>
+            <p class="text-muted mb-0">
+                Contactos de correo disponibles para enviar especificaciones.
+            </p>
+        </div>
+        <button class="btn btn-primary" id="btn-nuevo-contacto"
+                data-toggle="modal" data-target="#modalContacto">
+            <i class="fas fa-plus mr-1"></i> Nuevo contacto
+        </button>
+    </div>
+
+    <!-- Buscador -->
+    <div class="input-group mb-4">
+        <div class="input-group-prepend">
+            <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
+        </div>
+        <input type="text" class="form-control" id="buscar-contacto"
+               placeholder="Buscar por nombre o email...">
+    </div>
+
+    <!-- Lista -->
+    <div class="row" id="lista-contactos">
+        {% if contactos %}
+            {% for c in contactos %}
+            <div class="col-md-6 col-lg-4 mb-3 contacto-item"
+                 data-id="{{ c.id }}"
+                 data-nombre="{{ (c.nombre or '')|lower }}"
+                 data-email="{{ (c.email or '')|lower }}">
+
+                <div class="card card-custom h-100">
+                    <div class="card-body py-3">
+                        <div class="d-flex justify-content-between align-items-start">
+
+                            <div class="flex-grow-1 mr-2" style="min-width: 0;">
+                                <div class="font-weight-bold text-truncate"
+                                     style="font-size: 1.05rem; color: var(--dark-color);"
+                                     title="{{ c.nombre or c.email }}">
+                                    {{ c.nombre or c.email }}
+                                </div>
+                                <div class="text-muted small text-truncate" title="{{ c.email }}">
+                                    <i class="fas fa-envelope mr-1"></i>{{ c.email }}
+                                </div>
+
+                                {% if c.total_envios and c.total_envios > 0 %}
+                                <div class="small text-muted mt-2">
+                                    <i class="fas fa-paper-plane mr-1"></i>
+                                    {{ c.total_envios }}
+                                    envío{{ 's' if c.total_envios != 1 else '' }}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-link text-muted p-0"
+                                        data-toggle="dropdown" aria-haspopup="true">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <div class="dropdown-menu dropdown-menu-right">
+                                    <a class="dropdown-item btn-editar-contacto" href="#"
+                                       data-id="{{ c.id }}"
+                                       data-nombre="{{ c.nombre or '' }}"
+                                       data-email="{{ c.email }}">
+                                        <i class="fas fa-edit mr-2"></i> Editar
+                                    </a>
+                                    <a class="dropdown-item text-danger btn-eliminar-contacto" href="#"
+                                       data-id="{{ c.id }}"
+                                       data-nombre="{{ c.nombre or c.email }}">
+                                        <i class="fas fa-trash mr-2"></i> Eliminar
+                                    </a>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    Todavía no hay contactos. Hacé click en
+                    <strong>Nuevo contacto</strong> para agregar el primero.
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="alert alert-info d-none" id="sin-resultados">
+        <i class="fas fa-search mr-2"></i>No se encontraron contactos con esa búsqueda.
+    </div>
+
+</div>
+
+
+<!-- ═══ Modal Crear / Editar ═══ -->
+<div class="modal fade" id="modalContacto" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header"
+                 style="background: linear-gradient(135deg, var(--secondary-color), var(--primary-color)); color: #fff;">
+                <h5 class="modal-title" id="modalContactoTitulo">
+                    <i class="fas fa-address-card mr-2"></i>Nuevo contacto
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="contacto-id">
+
+                <div class="form-group">
+                    <label for="contacto-nombre">Nombre</label>
+                    <input type="text" class="form-control" id="contacto-nombre"
+                           placeholder="Ej: Soporte mapsa" autocomplete="off">
+                    <small class="form-text text-muted">
+                        Tal como aparece en el perfil de Outlook del destinatario.
+                    </small>
+                </div>
+
+                <div class="form-group mb-0">
+                    <label for="contacto-email">
+                        Email <span class="text-danger">*</span>
+                    </label>
+                    <input type="email" class="form-control" id="contacto-email"
+                           placeholder="Ej: soportemapsa@chocolatesmapsa.com"
+                           autocomplete="off">
+                </div>
+
+                <div id="contacto-error" class="alert alert-danger mt-3 mb-0"
+                     style="display:none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" id="btn-guardar-contacto">
+                    <i class="fas fa-save mr-1"></i>Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- ═══ Modal Eliminar ═══ -->
+<div class="modal fade" id="modalEliminarContacto" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-trash mr-2"></i>Eliminar contacto</h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                ¿Eliminar el contacto <strong id="eliminar-nombre"></strong>?
+                <br><small class="text-muted">Esta acción no se puede deshacer.</small>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-danger" id="btn-confirmar-eliminar">
+                    <i class="fas fa-trash mr-1"></i>Eliminar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block scripts %}
+<script>
+(function () {
+    // ─── URLs del backend ───
+    var URL_CREAR   = "{{ url_for('especificaciones.api_crear_contacto') }}";
+    var PREFIJO_API = URL_CREAR.replace(/crear$/, ''); // /especificaciones/api/contactos/
+
+    // ─── Refs ───
+    var $modal = $('#modalContacto');
+    var $error = $('#contacto-error');
+    var $btnGuardar = $('#btn-guardar-contacto');
+    var eliminarId = null;
+
+    function limpiarFormulario() {
+        $('#contacto-id').val('');
+        $('#contacto-nombre').val('');
+        $('#contacto-email').val('');
+        $error.hide().text('');
+        $btnGuardar.prop('disabled', false)
+                   .html('<i class="fas fa-save mr-1"></i>Guardar');
+    }
+
+    // ═══ Nuevo contacto ═══
+    $('#btn-nuevo-contacto').on('click', function () {
+        limpiarFormulario();
+        $('#modalContactoTitulo').html(
+            '<i class="fas fa-address-card mr-2"></i>Nuevo contacto'
+        );
+    });
+
+    // ═══ Editar contacto (delegado) ═══
+    $(document).on('click', '.btn-editar-contacto', function (e) {
+        e.preventDefault();
+        var $b = $(this);
+        limpiarFormulario();
+        $('#contacto-id').val($b.data('id'));
+        $('#contacto-nombre').val($b.data('nombre') || '');
+        $('#contacto-email').val($b.data('email') || '');
+        $('#modalContactoTitulo').html(
+            '<i class="fas fa-edit mr-2"></i>Editar contacto'
+        );
+        $btnGuardar.html('<i class="fas fa-save mr-1"></i>Guardar cambios');
+        $modal.modal('show');
+    });
+
+    // ═══ Guardar (crear o editar) ═══
+    $btnGuardar.on('click', function () {
+        var id     = $('#contacto-id').val();
+        var nombre = ($('#contacto-nombre').val() || '').trim();
+        var email  = ($('#contacto-email').val() || '').trim().toLowerCase();
+
+        // Validación client-side
+        if (!email) {
+            $error.text('El email es obligatorio').show();
+            return;
+        }
+        if (email.indexOf('@') === -1 ||
+            email.indexOf('.', email.indexOf('@') + 1) === -1) {
+            $error.text('El email no es válido').show();
+            return;
+        }
+
+        $error.hide();
+        $btnGuardar.prop('disabled', true)
+                   .html('<i class="fas fa-spinner fa-spin mr-1"></i>Guardando...');
+
+        var url = id ? (PREFIJO_API + id + '/editar') : URL_CREAR;
+
+        $.ajax({
+            url: url,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ nombre: nombre, email: email }),
+            success: function (r) {
+                if (r.success) {
+                    window.location.reload();
+                } else {
+                    $error.text(r.error || 'Error al guardar').show();
+                }
+            },
+            error: function (xhr) {
+                var msg = 'Error de comunicación';
+                try {
+                    if (xhr.responseJSON && xhr.responseJSON.error) {
+                        msg = xhr.responseJSON.error;
+                    }
+                } catch (e) {}
+                $error.text(msg).show();
+            },
+            complete: function () {
+                $btnGuardar.prop('disabled', false).html(
+                    id
+                        ? '<i class="fas fa-save mr-1"></i>Guardar cambios'
+                        : '<i class="fas fa-save mr-1"></i>Guardar'
+                );
+            }
+        });
+    });
+
+    // ═══ Eliminar (delegado) ═══
+    $(document).on('click', '.btn-eliminar-contacto', function (e) {
+        e.preventDefault();
+        eliminarId = $(this).data('id');
+        $('#eliminar-nombre').text($(this).data('nombre'));
+        $('#modalEliminarContacto').modal('show');
+    });
+
+    $('#btn-confirmar-eliminar').on('click', function () {
+        if (!eliminarId) return;
+        var $b = $(this);
+        $b.prop('disabled', true)
+          .html('<i class="fas fa-spinner fa-spin mr-1"></i>Eliminando...');
+
+        $.ajax({
+            url: PREFIJO_API + eliminarId + '/eliminar',
+            method: 'POST',
+            success: function (r) {
+                if (r.success) {
+                    window.location.reload();
+                } else {
+                    alert(r.error || 'Error al eliminar');
+                }
+            },
+            error: function () {
+                alert('Error de comunicación');
+            },
+            complete: function () {
+                $b.prop('disabled', false)
+                  .html('<i class="fas fa-trash mr-1"></i>Eliminar');
+            }
+        });
+    });
+
+    // ═══ Buscador local ═══
+    $('#buscar-contacto').on('input', function () {
+        var q = ($(this).val() || '').toLowerCase().trim();
+        var visibles = 0;
+        $('.contacto-item').each(function () {
+            var $it = $(this);
+            var nombre = ($it.data('nombre') || '').toLowerCase();
+            var email  = ($it.data('email')  || '').toLowerCase();
+            var match = !q || nombre.indexOf(q) !== -1 || email.indexOf(q) !== -1;
+            $it.toggleClass('d-none', !match);
+            if (match) visibles++;
+        });
+        $('#sin-resultados').toggleClass('d-none', visibles > 0 || !q);
+    });
+
+})();
+</script>
+{% endblock %}

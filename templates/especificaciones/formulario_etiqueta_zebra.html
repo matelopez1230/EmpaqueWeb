@@ -1,0 +1,720 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+    {% if origen_id %}
+        <a href="{{ url_for('especificaciones.ver', id_esp=origen_id) }}" class="btn btn-secondary mr-3">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+    {% elif borrador_id %}
+        <a href="{{ url_for('especificaciones.panel') }}" class="btn btn-secondary mr-3">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+    {% elif crear_a_partir_de_id %}
+        <a href="{{ url_for('especificaciones.ver', id_esp=crear_a_partir_de_id) }}" class="btn btn-secondary mr-3">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+    {% else %}
+        <a href="{{ url_for('especificaciones.buscar_tipo', tipo=tipo) }}" class="btn btn-secondary mr-3">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+    {% endif %}
+    <h2 style="color: #2c3e50; margin: 0;">
+        <i class="{{ tipo_info.icono }} mr-2 text-{{ tipo_info.color }}"></i>
+        {{ tipo_info.nombre }}
+        {% if origen_id %}<small class="text-muted">— Nueva versión</small>{% endif %}
+        {% if borrador_id %}<small class="text-muted">— Borrador</small>{% endif %}
+        {% if crear_a_partir_de_id %}<small class="text-muted">— Copia</small>{% endif %}
+    </h2>
+</div>
+
+{% if borrador_id and otro_editando %}
+<div class="alert alert-warning alert-dismissible fade show border-warning">
+    <i class="fas fa-user-edit mr-2"></i>
+    <strong>{{ otro_editando }}</strong> también está editando este borrador ahora mismo.
+    Si los dos guardan cambios, <strong>el último en guardar gana</strong> y el otro
+    recibirá un aviso.
+    <button type="button" class="close" data-dismiss="alert">&times;</button>
+</div>
+{% endif %}
+
+{% if crear_a_partir_de_id %}
+<div class="alert alert-info">
+    <i class="fas fa-clone mr-2"></i>
+    Estás creando una <strong>copia</strong> de
+    <strong>{{ original.codigo_base }}{{ original.variante }}</strong>.
+    Si mantenés el mismo código y variante, se va a guardar como
+    <strong>rev {{ original.revision_str }}</strong> (la siguiente).
+    Si cambiás uno de los dos, la revisión vuelve a <strong>00</strong>.
+</div>
+{% elif original %}
+<div class="alert alert-warning">
+    <i class="fas fa-code-branch mr-2"></i>
+    Estás creando una nueva versión basada en
+    <strong>{{ original.codigo_base }}{{ original.variante }} rev {{ '%02d'|format(original.revision|int) }}</strong>.
+    Si modificás algún campo del contenido, <strong>tenés que cambiar la variante o la revisión</strong>.
+</div>
+{% endif %}
+
+<form method="POST"
+      action="{{ url_for('especificaciones.guardar_borrador', tipo=tipo) }}"
+      id="form-doc"
+      data-origen="{{ '1' if origen_id else '0' }}"
+      data-modo="{% if crear_a_partir_de_id %}crear_a_partir_de{% elif borrador_id %}borrador{% elif origen_id %}nueva_version{% else %}nuevo{% endif %}">
+    {% if origen_id %}<input type="hidden" name="origen_id" value="{{ origen_id }}">{% endif %}
+
+    {% if borrador_id %}
+    <input type="hidden" name="borrador_id" id="input-borrador-id" value="{{ borrador_id }}">
+    {% else %}
+    <input type="hidden" name="borrador_id" id="input-borrador-id" value="">
+    {% endif %}
+
+    {% if borrador %}
+    <input type="hidden" name="fecha_actualizacion_original" id="input-fecha-orig"
+           value="{{ borrador.fecha_actualizacion }}">
+    {% endif %}
+
+    {# ═══════════════════════════════════════════════ #}
+    {# IDENTIFICACIÓN                                  #}
+    {# ═══════════════════════════════════════════════ #}
+    <div class="card card-custom mb-3">
+        <div class="card-header bg-primary-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-code-branch mr-2"></i>Identificación y versión</h5>
+        </div>
+        <div class="card-body">
+            <div class="form-row">
+                <div class="form-group col-md-3">
+                    <label>Código base <span class="text-danger">*</span></label>
+                    <input type="text" name="codigo_base" class="form-control input-custom"
+                           required placeholder="AL450"
+                           value="{{ prefill.codigo_base if prefill else '' }}">
+                </div>
+                <div class="form-group col-md-2">
+                    <label>Variante <span class="text-danger" id="req-variante" style="display:none;">*</span></label>
+                    <input type="text" name="variante" id="input-variante" maxlength="3"
+                           class="form-control input-custom"
+                           value="{{ prefill.variante if prefill else '' }}">
+                </div>
+                <div class="form-group col-md-2">
+                    <label>Revisión <span class="text-danger" id="req-revision" style="display:none;">*</span></label>
+                    <input type="number" name="revision_str" id="input-revision" min="0" max="99"
+                           class="form-control input-custom"
+                           value="{{ prefill.revision_str if prefill else '00' }}">
+                </div>
+                <div class="form-group col-md-2">
+                    <label>Fecha de revisión</label>
+                    <input type="date" name="fecha_revision" class="form-control input-custom"
+                           value="{{ prefill.fecha_revision if prefill else '' }}">
+                </div>
+                <div class="form-group col-md-3">
+                    <label>Aprobó</label>
+<select name="aprobador" class="form-control input-custom">
+    <option value="">— Seleccionar aprobador —</option>
+    {% for u in usuarios_aprobadores %}
+    <option value="{{ u.nombre_completo }}"
+            {% if prefill and prefill.aprobador == u.nombre_completo %}selected{% endif %}>
+        {{ u.nombre_completo }}
+    </option>
+    {% endfor %}
+</select>
+                </div>
+            </div>
+
+            <div class="form-row mt-2">
+                <div class="form-group col-md-12 mb-0">
+                    <div class="custom-control custom-checkbox">
+                        <input type="checkbox" class="custom-control-input"
+                               id="chk-preliminar" name="es_preliminar" value="1"
+                               {% if prefill and prefill.es_preliminar == "1" %}checked{% endif %}>
+                        <label class="custom-control-label" for="chk-preliminar">
+                            <strong>Versión preliminar</strong>
+                            <span class="text-muted ml-2">
+                                — agrega <code>-PRELIMINAR-</code> debajo del código en el header del PDF
+                            </span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ═══════════════════════════════════════════════ #}
+    {# SECCIÓN 3: IMAGEN DE DISEÑO (OBLIGATORIA)       #}
+    {# ═══════════════════════════════════════════════ #}
+    <div class="card card-custom mb-3">
+        <div class="card-header bg-info-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-image mr-2"></i>3. Imagen de diseño</h5>
+        </div>
+        <div class="card-body">
+            <div class="form-group mb-0" id="seccion-imagen">
+                <label class="font-weight-bold d-block">
+                    Imagen <span class="text-danger">*</span>
+                </label>
+
+                <div class="input-group">
+                    <div class="custom-file">
+                        <input type="file" class="custom-file-input" id="input-archivo-imagen"
+                               accept="image/*">
+                        <label class="custom-file-label" for="input-archivo-imagen">
+                            Seleccionar archivo...
+                        </label>
+                    </div>
+                    <div class="input-group-append">
+                        <button type="button" class="btn btn-primary-custom" id="btn-subir-imagen">
+                            <i class="fas fa-upload mr-1"></i>Subir
+                        </button>
+                    </div>
+                </div>
+
+                <div id="drop-zone-imagen" class="mt-2 p-3 text-center"
+                     style="border:2px dashed #ccc; border-radius:6px; color:#888; background:#fafafa;">
+                    <i class="fas fa-cloud-upload-alt fa-2x mb-2"></i><br>
+                    <span class="small">
+                        Arrastrá una imagen acá, o pegala con <kbd>Ctrl</kbd>+<kbd>V</kbd>
+                    </span>
+                </div>
+
+                <input type="hidden" name="imagen" id="input-imagen-ruta"
+                       value="{{ prefill.imagen if prefill else '' }}">
+                <div id="upload-feedback-imagen" class="form-text mt-1"></div>
+                <div id="upload-preview-imagen" class="mt-2"></div>
+            </div>
+        </div>
+    </div>
+
+    {# ═══════════════════════════════════════════════ #}
+    {# ANEXO (condicional)                             #}
+    {# ═══════════════════════════════════════════════ #}
+    <div class="card card-custom mb-3" id="card-anexo">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-list-alt mr-2"></i>Anexo — Detalle del cambio</h5>
+            <div class="form-check form-check-inline mb-0">
+                <input type="checkbox" class="form-check-input" id="chk-anexo" name="incluir_anexo" value="1"
+                       {% if prefill and prefill.incluir_anexo %}checked{% endif %}>
+                <label class="form-check-label text-white" for="chk-anexo">
+                    Incluir anexo
+                </label>
+            </div>
+        </div>
+        <div class="card-body" id="body-anexo">
+            <div id="aviso-anexo" class="small mb-2" style="display:none;"></div>
+            <textarea name="anexo_detalle_cambios" data-contenido="1"
+                      class="form-control input-custom" rows="3"
+                      placeholder="Motivo del cambio respecto a la versión anterior...">{{ prefill.anexo_detalle_cambios if prefill else '' }}</textarea>
+        </div>
+    </div>
+
+    {# ═══════════════════════════════════════════════ #}
+    {# ERRORES + BOTONES                               #}
+    {# ═══════════════════════════════════════════════ #}
+    <div id="error-version" class="alert alert-danger" style="display:none;"></div>
+    <div id="error-imagen"  class="alert alert-danger" style="display:none;"></div>
+
+    <div class="text-right mb-4">
+        {% if origen_id %}
+            <a href="{{ url_for('especificaciones.ver', id_esp=origen_id) }}" class="btn btn-secondary">
+                <i class="fas fa-times mr-1"></i>Cancelar
+            </a>
+        {% elif borrador_id %}
+            <a href="{{ url_for('especificaciones.panel') }}" class="btn btn-secondary">
+                <i class="fas fa-times mr-1"></i>Volver al panel
+            </a>
+        {% elif crear_a_partir_de_id %}
+            <a href="{{ url_for('especificaciones.ver', id_esp=crear_a_partir_de_id) }}" class="btn btn-secondary">
+                <i class="fas fa-times mr-1"></i>Cancelar
+            </a>
+        {% else %}
+            <a href="{{ url_for('especificaciones.buscar_tipo', tipo=tipo) }}" class="btn btn-secondary">
+                <i class="fas fa-times mr-1"></i>Cancelar
+            </a>
+        {% endif %}
+
+        <button type="button" class="btn btn-warning-custom" id="btn-guardar-borrador">
+            <i class="fas fa-save mr-1"></i>Guardar borrador
+        </button>
+
+        <button type="button" class="btn btn-success-custom" id="btn-publicar">
+            <i class="fas fa-check-circle mr-1"></i>Publicar
+        </button>
+
+        <button type="button" class="btn btn-danger-custom" id="btn-generar-pdf">
+            <i class="fas fa-file-pdf mr-1"></i>Generar PDF
+        </button>
+    </div>
+</form>
+
+{# ─── Modal "Generar PDF" ─── #}
+<div class="modal fade" id="modal-generar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger-custom text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>Generar PDF
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>
+                    Podés generar el PDF <strong>sin guardar</strong> (solo para revisar/imprimir),
+                    o cancelar y usar los botones <strong>"Guardar borrador"</strong> o
+                    <strong>"Publicar"</strong> según corresponda.
+                </p>
+                <p class="small text-muted mb-0">
+                    Recordá: hasta que no se publique, el documento no queda en el listado oficial
+                    y los cambios son reversibles.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger-custom" id="btn-generar-sin-guardar">
+                    <i class="fas fa-file-pdf mr-1"></i>Generar sin guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if original and not crear_a_partir_de_id %}
+<script id="original-data" type="application/json">{{ original | tojson }}</script>
+{% endif %}
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// MÓDULO: ImageDropzone (versión multi-instancia, como ME)
+// ═══════════════════════════════════════════════════════════════
+window.ImageDropzone = (function () {
+    var registrados = [];
+    var activo = null;
+
+    function init(cfg) {
+        var inputFile  = document.getElementById(cfg.inputFile);
+        var inputRuta  = document.getElementById(cfg.inputHidden);
+        var feedbackEl = document.getElementById(cfg.feedback);
+        var previewEl  = document.getElementById(cfg.preview);
+        var dropZone   = cfg.dropZone ? document.getElementById(cfg.dropZone) : null;
+        var btnSubir   = cfg.button   ? document.getElementById(cfg.button)   : null;
+        var uploadUrl  = cfg.uploadUrl || '/especificaciones/subir-imagen';
+
+        if (!inputFile || !inputRuta || !feedbackEl || !previewEl) return;
+
+        var api = { mostrarNombre: mostrarNombre, subir: subirArchivo };
+        registrados.push(api);
+
+        if (inputRuta.value) {
+            previewEl.innerHTML =
+                '<img src="/especificaciones/uploads/' + inputRuta.value +
+                '" style="max-height:140px;border:1px solid #ddd;border-radius:4px;padding:4px;">';
+            feedbackEl.innerHTML = '<span class="text-success"><i class="fas fa-check"></i> Archivo cargado</span>';
+        }
+
+        function mostrarNombre(nombre) {
+            var label = document.querySelector('label[for="' + cfg.inputFile + '"]');
+            if (label) label.textContent = nombre || 'Seleccionar archivo...';
+        }
+
+        function subirArchivo(file) {
+            if (!file) return;
+            var fd = new FormData();
+            fd.append('archivo', file);
+
+            if (btnSubir) {
+                btnSubir.disabled = true;
+                btnSubir.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            }
+            feedbackEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Subiendo...';
+
+            fetch(uploadUrl, { method: 'POST', body: fd })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.ok) {
+                        inputRuta.value = data.ruta;
+                        var extra = data.reutilizada
+                            ? ' <small class="text-muted">(ya existía, se reutilizó)</small>'
+                            : '';
+                        feedbackEl.innerHTML =
+                            '<span class="text-success"><i class="fas fa-check"></i> Archivo cargado</span>' + extra;
+                        previewEl.innerHTML =
+                            '<img src="' + data.url_preview +
+                            '" style="max-height:140px;border:1px solid #ddd;border-radius:4px;padding:4px;">';
+                    } else {
+                        feedbackEl.innerHTML =
+                            '<span class="text-danger"><i class="fas fa-times"></i> ' +
+                            (data.error || 'Error') + '</span>';
+                    }
+                })
+                .catch(function () {
+                    feedbackEl.innerHTML = '<span class="text-danger">Error de comunicación</span>';
+                })
+                .finally(function () {
+                    if (btnSubir) {
+                        btnSubir.disabled = false;
+                        btnSubir.innerHTML = '<i class="fas fa-upload mr-1"></i>Subir';
+                    }
+                });
+        }
+
+        inputFile.addEventListener('change', function () {
+            mostrarNombre(inputFile.files[0] ? inputFile.files[0].name : '');
+        });
+
+        if (btnSubir) {
+            btnSubir.addEventListener('click', function () {
+                if (!inputFile.files.length) {
+                    feedbackEl.innerHTML =
+                        '<span class="text-danger">Seleccioná, arrastrá o pegá un archivo primero</span>';
+                    return;
+                }
+                subirArchivo(inputFile.files[0]);
+            });
+        }
+
+        if (dropZone) {
+            ['dragenter', 'dragover'].forEach(function (ev) {
+                dropZone.addEventListener(ev, function (e) {
+                    e.preventDefault(); e.stopPropagation();
+                    dropZone.style.background = '#eaf4ff';
+                    dropZone.style.borderColor = '#5b9bd5';
+                });
+            });
+            ['dragleave', 'drop'].forEach(function (ev) {
+                dropZone.addEventListener(ev, function (e) {
+                    e.preventDefault(); e.stopPropagation();
+                    dropZone.style.background = '#fafafa';
+                    dropZone.style.borderColor = '#ccc';
+                });
+            });
+            dropZone.addEventListener('click', function () { activo = api; });
+            dropZone.addEventListener('drop', function (e) {
+                activo = api;
+                var dt = e.dataTransfer;
+                if (!dt || !dt.files || !dt.files.length) return;
+                var file = dt.files[0];
+                if (!file.type.startsWith('image/')) {
+                    feedbackEl.innerHTML = '<span class="text-danger">El archivo no es una imagen</span>';
+                    return;
+                }
+                mostrarNombre(file.name);
+                subirArchivo(file);
+            });
+        }
+    }
+
+    document.addEventListener('paste', function (e) {
+        var ae = document.activeElement;
+        if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA') && ae.type !== 'file') return;
+
+        var items = (e.clipboardData || window.clipboardData || {}).items || [];
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type && items[i].type.indexOf('image') !== -1) {
+                var file = items[i].getAsFile();
+                if (file) {
+                    e.preventDefault();
+                    var target = activo || registrados[0];
+                    if (target) {
+                        target.mostrarNombre(file.name || 'imagen_pegada.png');
+                        target.subir(file);
+                    }
+                }
+                return;
+            }
+        }
+    });
+
+    return { init: init };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// 1. Dropzone de la imagen (única)
+// ═══════════════════════════════════════════════════════════════
+ImageDropzone.init({
+    inputFile:   'input-archivo-imagen',
+    inputHidden: 'input-imagen-ruta',
+    button:      'btn-subir-imagen',
+    dropZone:    'drop-zone-imagen',
+    feedback:    'upload-feedback-imagen',
+    preview:     'upload-preview-imagen',
+});
+
+// ═══════════════════════════════════════════════════════════════
+// 2. Auto-check de anexo según versiones previas
+// ═══════════════════════════════════════════════════════════════
+(function () {
+    var inputCodigo  = document.querySelector('[name="codigo_base"]');
+    var chkAnexo     = document.getElementById('chk-anexo');
+    var bodyAnexo    = document.getElementById('body-anexo');
+    var avisoAnexo   = document.getElementById('aviso-anexo');
+    var origenId     = "{{ origen_id or '' }}";
+    var prefillAnexo = {{ 'true' if prefill and prefill.incluir_anexo else 'false' }};
+
+    if (!inputCodigo || !chkAnexo) return;
+
+    if (origenId) {
+        chkAnexo.checked = true;
+    } else if (prefillAnexo) {
+        chkAnexo.checked = true;
+    }
+
+    var timeout = null;
+    var ultimoCodigoConsultado = '';
+
+    function actualizarVisibilidadAnexo() {
+        bodyAnexo.style.display = chkAnexo.checked ? '' : 'none';
+    }
+
+    function consultarVersiones(codigo) {
+        fetch('/especificaciones/api/versiones/' + encodeURIComponent(codigo))
+            .then(r => r.json())
+            .then(data => {
+                if (data.existe) {
+                    chkAnexo.checked = true;
+                    avisoAnexo.innerHTML =
+                        '<span class="text-info">' +
+                        '<i class="fas fa-info-circle mr-1"></i>' +
+                        'Se encontraron ' + data.total + ' versión(es) previa(s) de <strong>' +
+                        codigo + '</strong>. Completá el detalle del cambio.' +
+                        '</span>';
+                } else {
+                    chkAnexo.checked = false;
+                    avisoAnexo.innerHTML =
+                        '<span class="text-muted">' +
+                        '<i class="fas fa-info-circle mr-1"></i>' +
+                        'No hay versiones previas de <strong>' + codigo + '</strong>. ' +
+                        'El anexo no es obligatorio.' +
+                        '</span>';
+                }
+                avisoAnexo.style.display = '';
+                actualizarVisibilidadAnexo();
+            })
+            .catch(() => {
+                avisoAnexo.innerHTML = '<span class="text-muted">No se pudo verificar versiones previas.</span>';
+                avisoAnexo.style.display = '';
+            });
+    }
+
+    inputCodigo.addEventListener('input', function () {
+        clearTimeout(timeout);
+        var codigo = inputCodigo.value.trim().toUpperCase();
+        if (!codigo || codigo === ultimoCodigoConsultado) return;
+        timeout = setTimeout(function () {
+            ultimoCodigoConsultado = codigo;
+            consultarVersiones(codigo);
+        }, 500);
+    });
+
+    chkAnexo.addEventListener('change', actualizarVisibilidadAnexo);
+    actualizarVisibilidadAnexo();
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// 3. Validación de versión (si viene de una base)
+// ═══════════════════════════════════════════════════════════════
+$(document).ready(function () {
+    var form = document.getElementById('form-doc');
+    var dataOrigEl = document.getElementById('original-data');
+    if (!dataOrigEl) return;
+
+    var original = JSON.parse(dataOrigEl.textContent);
+
+    function hayCambioContenido() {
+        var campos = document.querySelectorAll('[data-contenido="1"]');
+        for (var i = 0; i < campos.length; i++) {
+            var el = campos[i];
+            var actual = (el.value || '').trim();
+            var orig   = (original[el.name] || '').toString().trim();
+            if (actual !== orig) return true;
+        }
+        return false;
+    }
+
+    function refrescarIndicadores() {
+        var contenidoCambio = hayCambioContenido();
+        var reqVar = document.getElementById('req-variante');
+        var reqRev = document.getElementById('req-revision');
+        var inputVar = document.getElementById('input-variante');
+        var inputRev = document.getElementById('input-revision');
+
+        var varCambio = inputVar.value.toUpperCase() !== (original.variante || '').toUpperCase();
+        var revCambio = parseInt(inputRev.value || 0) !== parseInt(original.revision_str || 0);
+
+        var necesitaCambiar = contenidoCambio && !varCambio && !revCambio;
+
+        reqVar.style.display = (contenidoCambio && !varCambio) ? 'inline' : 'none';
+        reqRev.style.display = (contenidoCambio && !revCambio) ? 'inline' : 'none';
+        inputVar.classList.toggle('is-invalid', necesitaCambiar);
+        inputRev.classList.toggle('is-invalid', necesitaCambiar);
+    }
+
+    form.addEventListener('input', refrescarIndicadores);
+    refrescarIndicadores();
+
+    form.addEventListener('submit', function (e) {
+        if (!hayCambioContenido()) return true;
+
+        var inputVar = document.getElementById('input-variante');
+        var inputRev = document.getElementById('input-revision');
+        var varCambio = inputVar.value.toUpperCase() !== (original.variante || '').toUpperCase();
+        var revCambio = parseInt(inputRev.value || 0) !== parseInt(original.revision_str || 0);
+
+        if (!varCambio && !revCambio) {
+            e.preventDefault();
+            var err = document.getElementById('error-version');
+            err.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i>' +
+                          'Modificaste el contenido: <strong>cambiá la variante o la revisión</strong> ' +
+                          'antes de generar la nueva versión.';
+            err.style.display = 'block';
+            err.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return false;
+        }
+        return true;
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// 4. Validación: imagen obligatoria antes de guardar/publicar
+// ═══════════════════════════════════════════════════════════════
+function validarImagen() {
+    var inputImagen = document.getElementById('input-imagen-ruta');
+    var err = document.getElementById('error-imagen');
+    if (!inputImagen || !inputImagen.value) {
+        err.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i>' +
+                        'La <strong>imagen de diseño es obligatoria</strong>. ' +
+                        'Subila con el botón, arrastrándola o pegándola con <kbd>Ctrl</kbd>+<kbd>V</kbd>.';
+        err.style.display = 'block';
+        err.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return false;
+    }
+    err.style.display = 'none';
+    return true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 5. Acciones: Guardar borrador / Publicar / Generar PDF
+// ═══════════════════════════════════════════════════════════════
+(function () {
+    var form = document.getElementById('form-doc');
+    if (!form) return;
+
+    var TIPO = "{{ tipo }}";
+    var ACCION_BORRADOR = "/especificaciones/tipo/" + TIPO + "/borrador";
+    var ACCION_PUBLICAR = "/especificaciones/tipo/" + TIPO + "/publicar";
+    var ACCION_TEMPORAL = "/especificaciones/tipo/" + TIPO + "/temporal";
+
+    function irA(action, blank) {
+        form.action = action;
+        form.target = blank ? '_blank' : '';
+        form.submit();
+    }
+
+    var btnBorrador = document.getElementById('btn-guardar-borrador');
+    var btnPublicar = document.getElementById('btn-publicar');
+    var btnGenPdf   = document.getElementById('btn-generar-pdf');
+    var btnGenSin   = document.getElementById('btn-generar-sin-guardar');
+
+    if (btnBorrador) {
+        btnBorrador.addEventListener('click', function () {
+            if (!form.checkValidity()) { form.reportValidity(); return; }
+            if (!validarImagen()) return;
+            irA(ACCION_BORRADOR);
+        });
+    }
+
+    if (btnPublicar) {
+        btnPublicar.addEventListener('click', function () {
+            if (!form.checkValidity()) { form.reportValidity(); return; }
+            if (!validarImagen()) return;
+            if (!confirm('¿Publicar este documento? Una vez publicado, no podrá modificarse.')) return;
+            irA(ACCION_PUBLICAR);
+        });
+    }
+
+    if (btnGenPdf) {
+        btnGenPdf.addEventListener('click', function () {
+            if (!form.checkValidity()) { form.reportValidity(); return; }
+            if (!validarImagen()) return;
+            $('#modal-generar').modal('show');
+        });
+    }
+
+    if (btnGenSin) {
+        btnGenSin.addEventListener('click', function () {
+            $('#modal-generar').modal('hide');
+            irA(ACCION_TEMPORAL, true);
+        });
+    }
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// 6. HEARTBEAT: mantener viva la marca de "edición activa"
+// ═══════════════════════════════════════════════════════════════
+(function () {
+    var inputB = document.getElementById('input-borrador-id');
+    if (!inputB || !inputB.value) return;
+
+    var url = "/especificaciones/borrador/" + inputB.value + "/heartbeat";
+
+    function latir() {
+        fetch(url, { method: 'POST' }).catch(function () {});
+    }
+
+    latir();
+    setInterval(latir, 120000);
+
+    ['input', 'change', 'keydown'].forEach(function (ev) {
+        document.addEventListener(ev, function () {
+            var ahora = Date.now();
+            if (!window._ultimoLatido || ahora - window._ultimoLatido > 30000) {
+                window._ultimoLatido = ahora;
+                latir();
+            }
+        }, { passive: true });
+    });
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// 7. RECALCULAR REVISIÓN EN MODO "CREAR A PARTIR DE"
+// ═══════════════════════════════════════════════════════════════
+(function () {
+    var form = document.getElementById('form-doc');
+    if (!form) return;
+    if (form.getAttribute('data-modo') !== 'crear_a_partir_de') return;
+
+    var inputCodigo   = document.querySelector('[name="codigo_base"]');
+    var inputVariante = document.querySelector('[name="variante"]');
+    var inputRevision = document.getElementById('input-revision');
+    if (!inputCodigo || !inputVariante || !inputRevision) return;
+
+    var TIPO         = "{{ tipo }}";
+    var origCodigo   = "{{ original.codigo_base }}".toUpperCase();
+    var origVariante = "{{ original.variante }}".toUpperCase();
+
+    function recalcular() {
+        var cod  = (inputCodigo.value   || '').trim().toUpperCase();
+        var vart = (inputVariante.value || '').trim().toUpperCase();
+
+        if (cod === origCodigo && vart === origVariante) {
+            fetch('/especificaciones/api/versiones/' + encodeURIComponent(cod))
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    var maxRev = -1;
+                    (data.versiones || []).forEach(function (v) {
+                        var vVart = (v.variante || '').toUpperCase();
+                        if (v.tipo === TIPO && vVart === vart && v.revision > maxRev) {
+                            maxRev = v.revision;
+                        }
+                    });
+                    inputRevision.value = String(maxRev + 1).padStart(2, '0');
+                })
+                .catch(function () {});
+        } else {
+            inputRevision.value = '00';
+        }
+    }
+
+    inputCodigo.addEventListener('input', recalcular);
+    inputVariante.addEventListener('input', recalcular);
+})();
+</script>
+{% endblock %}

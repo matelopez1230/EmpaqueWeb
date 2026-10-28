@@ -1,0 +1,874 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+    {% if origen_id %}
+        <a href="{{ url_for('especificaciones.ver', id_esp=origen_id) }}" class="btn btn-secondary mr-3">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+    {% elif borrador_id %}
+        <a href="{{ url_for('especificaciones.panel') }}" class="btn btn-secondary mr-3">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+    {% elif crear_a_partir_de_id %}
+        <a href="{{ url_for('especificaciones.ver', id_esp=crear_a_partir_de_id) }}" class="btn btn-secondary mr-3">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+    {% else %}
+        <a href="{{ url_for('especificaciones.buscar_tipo', tipo=tipo) }}" class="btn btn-secondary mr-3">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+    {% endif %}
+    <h2 style="color: #2c3e50; margin: 0;">
+        <i class="{{ tipo_info.icono }} mr-2 text-{{ tipo_info.color }}"></i>
+        {{ tipo_info.nombre }}
+        {% if origen_id %}<small class="text-muted">— Nueva versión</small>{% endif %}
+        {% if borrador_id %}<small class="text-muted">— Borrador</small>{% endif %}
+        {% if crear_a_partir_de_id %}<small class="text-muted">— Copia</small>{% endif %}
+    </h2>
+</div>
+
+{% if borrador_id and otro_editando %}
+<div class="alert alert-warning alert-dismissible fade show border-warning">
+    <i class="fas fa-user-edit mr-2"></i>
+    <strong>{{ otro_editando }}</strong> también está editando este borrador ahora mismo.
+    Si los dos guardan cambios, <strong>el último en guardar gana</strong> y el otro
+    recibirá un aviso.
+    <button type="button" class="close" data-dismiss="alert">&times;</button>
+</div>
+{% endif %}
+
+{% if crear_a_partir_de_id %}
+<div class="alert alert-info">
+    <i class="fas fa-clone mr-2"></i>
+    Estás creando una <strong>copia</strong> de
+    <strong>{{ original.codigo_base }}{{ original.variante }}</strong>.
+    Si mantenés el mismo código y variante, se va a guardar como
+    <strong>rev {{ original.revision_str }}</strong> (la siguiente).
+    Si cambiás uno de los dos, la revisión vuelve a <strong>00</strong>.
+</div>
+{% elif original %}
+<div class="alert alert-warning">
+    <i class="fas fa-code-branch mr-2"></i>
+    Estás creando una nueva versión basada en
+    <strong>{{ original.codigo_base }}{{ original.variante }} rev {{ '%02d'|format(original.revision|int) }}</strong>.
+    Si modificás algún campo del contenido, <strong>tenés que cambiar la variante o la revisión</strong>.
+</div>
+{% endif %}
+
+<form method="POST"
+      action="{{ url_for('especificaciones.guardar_borrador', tipo=tipo) }}"
+      id="form-doc"
+      data-origen="{{ '1' if origen_id else '0' }}"
+      data-modo="{% if crear_a_partir_de_id %}crear_a_partir_de{% elif borrador_id %}borrador{% elif origen_id %}nueva_version{% else %}nuevo{% endif %}">
+    {% if origen_id %}<input type="hidden" name="origen_id" value="{{ origen_id }}">{% endif %}
+
+    {% if borrador_id %}
+    <input type="hidden" name="borrador_id" id="input-borrador-id" value="{{ borrador_id }}">
+    {% else %}
+    <input type="hidden" name="borrador_id" id="input-borrador-id" value="">
+    {% endif %}
+
+    {# ─── Bloqueo optimista: fecha original del borrador ─── #}
+    {% if borrador %}
+    <input type="hidden" name="fecha_actualizacion_original" id="input-fecha-orig"
+           value="{{ borrador.fecha_actualizacion }}">
+    {% endif %}
+
+    {# ═══════════════════════════════════════════════ #}
+    {# IDENTIFICACIÓN                                  #}
+    {# ═══════════════════════════════════════════════ #}
+    <div class="card card-custom mb-3">
+        <div class="card-header bg-primary-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-code-branch mr-2"></i>Identificación y versión</h5>
+        </div>
+        <div class="card-body">
+            <div class="form-row">
+                <div class="form-group col-md-3">
+                    <label>Código base <span class="text-danger">*</span></label>
+                    <input type="text" name="codigo_base" class="form-control input-custom"
+                           required placeholder="AL450"
+                           value="{{ prefill.codigo_base if prefill else '' }}">
+                </div>
+                <div class="form-group col-md-2">
+                    <label>Variante <span class="text-danger" id="req-variante" style="display:none;">*</span></label>
+                    <input type="text" name="variante" id="input-variante" maxlength="3"
+                           class="form-control input-custom"
+                           value="{{ prefill.variante if prefill else '' }}">
+                </div>
+                <div class="form-group col-md-2">
+                    <label>Revisión <span class="text-danger" id="req-revision" style="display:none;">*</span></label>
+                    <input type="number" name="revision_str" id="input-revision" min="0" max="99"
+                           class="form-control input-custom"
+                           value="{{ prefill.revision_str if prefill else '00' }}">
+                </div>
+                <div class="form-group col-md-2">
+                    <label>Fecha de revisión</label>
+                    <input type="date" name="fecha_revision" class="form-control input-custom"
+                           value="{{ prefill.fecha_revision if prefill else '' }}">
+                </div>
+                <div class="form-group col-md-3">
+                    <label>Aprobó</label>
+<select name="aprobador" class="form-control input-custom">
+    <option value="">— Seleccionar aprobador —</option>
+    {% for u in usuarios_aprobadores %}
+    <option value="{{ u.nombre_completo }}"
+            {% if prefill and prefill.aprobador == u.nombre_completo %}selected{% endif %}>
+        {{ u.nombre_completo }}
+    </option>
+    {% endfor %}
+</select>
+                </div>
+            </div>
+
+            <div class="form-row mt-2">
+                <div class="form-group col-md-12 mb-0">
+                    <div class="custom-control custom-checkbox">
+                        <input type="checkbox" class="custom-control-input"
+                               id="chk-preliminar" name="es_preliminar" value="1"
+                               {% if prefill and prefill.es_preliminar == "1" %}checked{% endif %}>
+                        <label class="custom-control-label" for="chk-preliminar">
+                            <strong>Versión preliminar</strong>
+                            <span class="text-muted ml-2">— agrega <code>-PRELIMINAR-</code> debajo del código en el PDF</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ═══════════════════════════════════════════════ #}
+    {# SECCIÓN 1: DENOMINACIÓN                         #}
+    {# ═══════════════════════════════════════════════ #}
+    <div class="card card-custom mb-3">
+        <div class="card-header bg-success-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-tag mr-2"></i>1. Denominación del material</h5>
+        </div>
+        <div class="card-body">
+            <textarea name="texto_denominacion" data-contenido="1"
+                      class="form-control input-custom" rows="3"
+                      placeholder="Ej: TAPA TERMOSELLABLE DE ALUMINIO">{{ prefill.texto_denominacion if prefill else '' }}</textarea>
+        </div>
+    </div>
+
+    {# ═══════════════════════════════════════════════ #}
+    {# SECCIÓN 2: MARCO LEGAL                          #}
+    {# ═══════════════════════════════════════════════ #}
+    <div class="card card-custom mb-3">
+        <div class="card-header bg-info-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-gavel mr-2"></i>2. Marco legal</h5>
+        </div>
+        <div class="card-body">
+            <textarea name="texto_marco_legal" data-contenido="1"
+                      class="form-control input-custom" rows="5"
+                      placeholder="Ej: Código Alimentario Argentino: Artículo 184...">{{ prefill.texto_marco_legal if prefill else '' }}</textarea>
+        </div>
+    </div>
+
+    {# ═══════════════════════════════════════════════ #}
+    {# SECCIÓN 3: ESTRUCTURA DEL MATERIAL              #}
+    {# ═══════════════════════════════════════════════ #}
+    <div class="card card-custom mb-3">
+        <div class="card-header bg-warning-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-layer-group mr-2"></i>3. Estructura del material</h5>
+        </div>
+        <div class="card-body">
+            <textarea name="texto_estructura" data-contenido="1"
+                      class="form-control input-custom" rows="4"
+                      placeholder="Ej: Tapas de Aluminio 38 µ impresas en su cara externa...">{{ prefill.texto_estructura if prefill else '' }}</textarea>
+        </div>
+    </div>
+
+    {# ═══════════════════════════════════════════════ #}
+    {# SECCIÓN 4: PARÁMETROS                           #}
+    {# ═══════════════════════════════════════════════ #}
+    <div class="card card-custom mb-3">
+        <div class="card-header bg-primary-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-ruler mr-2"></i>4. Parámetros de especificación</h5>
+        </div>
+        <div class="card-body">
+
+            {# ─── 4.1.1 PRIMER ORDEN ─── #}
+            <h6 class="font-weight-bold text-primary mt-3 d-flex justify-content-between align-items-center">
+                <span>4.1.1 Características de primer orden</span>
+                <span class="d-flex align-items-center">
+                    <label class="mr-2 mb-0 small">Filas:</label>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-accion="menos" data-tabla="p1">−</button>
+                    <input type="number" id="cant-p1" class="form-control form-control-sm mx-1 text-center"
+                           style="width: 60px;" min="1" max="20" value="3">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-accion="mas" data-tabla="p1">+</button>
+                </span>
+            </h6>
+            <table class="table table-sm table-bordered">
+                <thead class="thead-light">
+                    <tr><th width="35%">Parámetro</th><th width="40%">Valor</th><th>Método</th></tr>
+                </thead>
+                <tbody id="tbody-p1"></tbody>
+            </table>
+
+            {# ─── 4.1.2.1 BARRERA ─── #}
+            <h6 class="font-weight-bold text-primary mt-4 d-flex justify-content-between align-items-center">
+                <span>4.1.2.1 Propiedades de barrera</span>
+                <span class="d-flex align-items-center">
+                    <label class="mr-2 mb-0 small">Filas:</label>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-accion="menos" data-tabla="barrera">−</button>
+                    <input type="number" id="cant-barrera" class="form-control form-control-sm mx-1 text-center"
+                           style="width: 60px;" min="1" max="20" value="2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-accion="mas" data-tabla="barrera">+</button>
+                </span>
+            </h6>
+            <table class="table table-sm table-bordered">
+                <thead class="thead-light">
+                    <tr><th width="35%">Parámetro</th><th width="40%">Valor</th><th>Método</th></tr>
+                </thead>
+                <tbody id="tbody-barrera"></tbody>
+            </table>
+
+            {# ─── 4.1.2.2 SELLADO ─── #}
+            <h6 class="font-weight-bold text-primary mt-4">4.1.2.2 Propiedades de sellado</h6>
+            <textarea name="texto_sellado" data-contenido="1"
+                      class="form-control input-custom" rows="2">{{ prefill.texto_sellado if prefill else '' }}</textarea>
+
+            {# ─── 4.1.2.3 PATRÓN SENSORIAL ─── #}
+            <h6 class="font-weight-bold text-primary mt-4 d-flex justify-content-between align-items-center">
+                <span>4.1.2.3 Especificaciones de patrón sensorial</span>
+                <span class="d-flex align-items-center">
+                    <label class="mr-2 mb-0 small">Filas:</label>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-accion="menos" data-tabla="ps">−</button>
+                    <input type="number" id="cant-ps" class="form-control form-control-sm mx-1 text-center"
+                           style="width: 60px;" min="1" max="20" value="3">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-accion="mas" data-tabla="ps">+</button>
+                </span>
+            </h6>
+            <table class="table table-sm table-bordered">
+                <thead class="thead-light">
+                    <tr><th width="35%">Parámetro</th><th>Valor / Condiciones</th></tr>
+                </thead>
+                <tbody id="tbody-ps"></tbody>
+            </table>
+
+        </div>
+    </div>
+
+    {# ═══════════════════════════════════════════════ #}
+    {# SECCIÓN 6: CONTAMINANTES                        #}
+    {# ═══════════════════════════════════════════════ #}
+    <div class="card card-custom mb-3">
+        <div class="card-header bg-danger-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-biohazard mr-2"></i>6. Contaminantes</h5>
+        </div>
+        <div class="card-body">
+
+            {# ─── 6.1 QUÍMICOS ─── #}
+            <h6 class="font-weight-bold text-danger d-flex justify-content-between align-items-center">
+                <span>6.1 Químicos</span>
+                <span class="d-flex align-items-center">
+                    <label class="mr-2 mb-0 small">Filas:</label>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-accion="menos" data-tabla="quim">−</button>
+                    <input type="number" id="cant-quim" class="form-control form-control-sm mx-1 text-center"
+                           style="width: 60px;" min="1" max="20" value="2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-accion="mas" data-tabla="quim">+</button>
+                </span>
+            </h6>
+            <table class="table table-sm table-bordered">
+                <thead class="thead-light">
+                    <tr><th width="35%">Parámetro</th><th width="40%">Valor</th><th>Método</th></tr>
+                </thead>
+                <tbody id="tbody-quim"></tbody>
+            </table>
+
+            {# ─── 6.2 FÍSICOS ─── #}
+            <h6 class="font-weight-bold text-danger mt-4">6.2 Físicos</h6>
+
+            <div class="form-group">
+                <label class="small mb-1">Valor común (aplica a todas las filas)</label>
+                <input type="text" name="fis_valor_comun" data-contenido="1"
+                       class="form-control form-control-sm"
+                       value="{{ prefill.fis_valor_comun if prefill else '' }}">
+            </div>
+
+            <div class="d-flex justify-content-end align-items-center mb-2">
+                <label class="mr-2 mb-0 small">Cantidad de parámetros:</label>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-accion="menos" data-tabla="fis">−</button>
+                <input type="number" id="cant-fis" class="form-control form-control-sm mx-1 text-center"
+                       style="width: 60px;" min="1" max="20" value="4">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-accion="mas" data-tabla="fis">+</button>
+            </div>
+
+            <table class="table table-sm table-bordered">
+                <thead class="thead-light">
+                    <tr><th>Parámetro</th></tr>
+                </thead>
+                <tbody id="tbody-fis"></tbody>
+            </table>
+
+            <div class="form-group mt-3 mb-0">
+                <label class="small mb-1">Nota (fila inferior, abarca el ancho completo)</label>
+                <input type="text" name="fis_nota" data-contenido="1"
+                       class="form-control form-control-sm"
+                       placeholder="Ej: Libre de contaminantes físicos visibles"
+                       value="{{ prefill.fis_nota if prefill else '' }}">
+            </div>
+
+        </div>
+    </div>
+
+    {# ═══════════════════════════════════════════════ #}
+    {# SECCIÓN 7: CONDICIONES DE ENTREGA               #}
+    {# ═══════════════════════════════════════════════ #}
+    <div class="card card-custom mb-3">
+        <div class="card-header bg-success-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-truck mr-2"></i>7. Condiciones de entrega</h5>
+        </div>
+        <div class="card-body">
+
+            <h6 class="font-weight-bold text-success">7.1 Embalaje</h6>
+
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label>Embalaje — columna izquierda</label>
+                    <textarea name="embalaje_izq1" data-contenido="1"
+                              class="form-control input-custom" rows="4">{{ prefill.embalaje_izq1 if prefill else '' }}</textarea>
+                </div>
+                <div class="form-group col-md-6">
+                    <label>Embalaje — columna derecha</label>
+                    <textarea name="embalaje_der1" data-contenido="1"
+                              class="form-control input-custom" rows="4">{{ prefill.embalaje_der1 if prefill else '' }}</textarea>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label>Paletizado — columna izquierda</label>
+                    <textarea name="paletizado_izq1" data-contenido="1"
+                              class="form-control input-custom" rows="4">{{ prefill.paletizado_izq1 if prefill else '' }}</textarea>
+                </div>
+                <div class="form-group col-md-6">
+                    <label>Paletizado — columna derecha</label>
+                    <textarea name="paletizado_der1" data-contenido="1"
+                              class="form-control input-custom" rows="4">{{ prefill.paletizado_der1 if prefill else '' }}</textarea>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label>Rótulo — columna izquierda</label>
+                    <textarea name="rotulo_izq1" data-contenido="1"
+                              class="form-control input-custom" rows="4">{{ prefill.rotulo_izq1 if prefill else '' }}</textarea>
+                </div>
+                <div class="form-group col-md-6">
+                    <label>Rótulo — columna derecha</label>
+                    <textarea name="rotulo_der1" data-contenido="1"
+                              class="form-control input-custom" rows="4">{{ prefill.rotulo_der1 if prefill else '' }}</textarea>
+                </div>
+            </div>
+
+            <h6 class="font-weight-bold text-success mt-4">7.2 Transporte</h6>
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label>Transporte — columna izquierda</label>
+                    <textarea name="transporte_izq1" data-contenido="1"
+                              class="form-control input-custom" rows="4">{{ prefill.transporte_izq1 if prefill else '' }}</textarea>
+                </div>
+                <div class="form-group col-md-6">
+                    <label>Transporte — columna derecha</label>
+                    <textarea name="transporte_der1" data-contenido="1"
+                              class="form-control input-custom" rows="4">{{ prefill.transporte_der1 if prefill else '' }}</textarea>
+                </div>
+            </div>
+
+            <h6 class="font-weight-bold text-success mt-4">7.3 Mercadería</h6>
+
+            <div class="form-group">
+                <label>7.3.1 Vida útil</label>
+                <textarea name="texto_vida_util" data-contenido="1"
+                          class="form-control input-custom" rows="2">{{ prefill.texto_vida_util if prefill else '' }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label>7.3.2 Certificado de análisis</label>
+                <textarea name="texto_certificado_analisis" data-contenido="1"
+                          class="form-control input-custom" rows="4"
+                          placeholder="Cada partida de mercadería debe ser acompañada por un certificado de análisis...">{{ prefill.texto_certificado_analisis if prefill else '' }}</textarea>
+            </div>
+
+            <div class="form-group mb-0">
+                <label>7.3.3 Cantidad</label>
+                <textarea name="texto_cantidad" data-contenido="1"
+                          class="form-control input-custom" rows="4"
+                          placeholder="Cada entrega debe constar como máximo de 1 lote...">{{ prefill.texto_cantidad if prefill else '' }}</textarea>
+            </div>
+
+            <h6 class="font-weight-bold text-success mt-4">7.4 Alta de proveedor</h6>
+            <p class="small text-muted mb-3">Antes de la primera compra de mercadería, se requiere:</p>
+
+            <div class="form-group">
+                <label>7.4.1 Documentación y muestras iniciales</label>
+                <textarea name="texto_documentacion_muestras_iniciales" data-contenido="1"
+                          class="form-control input-custom" rows="4">{{ prefill.texto_documentacion_muestras_iniciales if prefill else '' }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label>7.4.2 Documentación obligatoria</label>
+                <textarea name="texto_documentacion_obligatoria" data-contenido="1"
+                          class="form-control input-custom" rows="4">{{ prefill.texto_documentacion_obligatoria if prefill else '' }}</textarea>
+            </div>
+
+            <div class="form-group mb-0">
+                <label>7.4.3 Documentación complementaria</label>
+                <textarea name="texto_documentacion_complementaria" data-contenido="1"
+                          class="form-control input-custom" rows="4">{{ prefill.texto_documentacion_complementaria if prefill else '' }}</textarea>
+            </div>
+
+        </div>
+    </div>
+
+    {# ═══════════════════════════════════════════════ #}
+    {# SECCIÓN 8: ALMACENAMIENTO                       #}
+    {# ═══════════════════════════════════════════════ #}
+    <div class="card card-custom mb-3">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0"><i class="fas fa-warehouse mr-2"></i>8. Condiciones de almacenamiento</h5>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label>8.1 Conservación</label>
+                <textarea name="texto_conservacion" data-contenido="1"
+                          class="form-control input-custom" rows="3">{{ prefill.texto_conservacion if prefill else '' }}</textarea>
+            </div>
+            <div class="form-group">
+                <label>8.2 Manipulación</label>
+                <textarea name="texto_manipulacion" data-contenido="1"
+                          class="form-control input-custom" rows="3">{{ prefill.texto_manipulacion if prefill else '' }}</textarea>
+            </div>
+
+            <div class="form-row mb-0">
+                <div class="form-group col-md-6">
+                    <label>Unidad de compra</label>
+                    <input type="text" name="unidad_compra" data-contenido="1"
+                           class="form-control input-custom"
+                           placeholder="Ej: KG"
+                           value="{{ prefill.unidad_compra if prefill else '' }}">
+                </div>
+                <div class="form-group col-md-6 mb-0">
+                    <label>Unidad de stock</label>
+                    <input type="text" name="unidad_stock" data-contenido="1"
+                           class="form-control input-custom"
+                           placeholder="Ej: KG"
+                           value="{{ prefill.unidad_stock if prefill else '' }}">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ═══════════════════════════════════════════════ #}
+    {# ANEXO (condicional)                             #}
+    {# ═══════════════════════════════════════════════ #}
+    <div class="card card-custom mb-3" id="card-anexo">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-list-alt mr-2"></i>Anexo — Detalle del cambio</h5>
+            <div class="form-check form-check-inline mb-0">
+                <input type="checkbox" class="form-check-input" id="chk-anexo" name="incluir_anexo" value="1"
+                       {% if prefill and prefill.incluir_anexo %}checked{% endif %}>
+                <label class="form-check-label text-white" for="chk-anexo">Incluir anexo</label>
+            </div>
+        </div>
+        <div class="card-body" id="body-anexo">
+            <div id="aviso-anexo" class="small mb-2" style="display:none;"></div>
+            <textarea name="anexo_detalle_cambios" data-contenido="1"
+                      class="form-control input-custom" rows="3"
+                      placeholder="Motivo del cambio respecto a la versión anterior...">{{ prefill.anexo_detalle_cambios if prefill else '' }}</textarea>
+        </div>
+    </div>
+
+    {# ═══════════════════════════════════════════════ #}
+    {# ERRORES + BOTONES                               #}
+    {# ═══════════════════════════════════════════════ #}
+    <div id="error-version" class="alert alert-danger" style="display:none;"></div>
+
+    <div class="text-right mb-4">
+        {% if origen_id %}
+            <a href="{{ url_for('especificaciones.ver', id_esp=origen_id) }}" class="btn btn-secondary">
+                <i class="fas fa-times mr-1"></i>Cancelar
+            </a>
+        {% elif borrador_id %}
+            <a href="{{ url_for('especificaciones.panel') }}" class="btn btn-secondary">
+                <i class="fas fa-times mr-1"></i>Volver al panel
+            </a>
+        {% elif crear_a_partir_de_id %}
+            <a href="{{ url_for('especificaciones.ver', id_esp=crear_a_partir_de_id) }}" class="btn btn-secondary">
+                <i class="fas fa-times mr-1"></i>Cancelar
+            </a>
+        {% else %}
+            <a href="{{ url_for('especificaciones.buscar_tipo', tipo=tipo) }}" class="btn btn-secondary">
+                <i class="fas fa-times mr-1"></i>Cancelar
+            </a>
+        {% endif %}
+
+        <button type="button" class="btn btn-warning-custom" id="btn-guardar-borrador">
+            <i class="fas fa-save mr-1"></i>Guardar borrador
+        </button>
+
+        <button type="button" class="btn btn-success-custom" id="btn-publicar">
+            <i class="fas fa-check-circle mr-1"></i>Publicar
+        </button>
+
+        <button type="button" class="btn btn-danger-custom" id="btn-generar-pdf">
+            <i class="fas fa-file-pdf mr-1"></i>Generar PDF
+        </button>
+    </div>
+</form>
+
+{# ─── Modal para "Generar PDF" ─── #}
+<div class="modal fade" id="modal-generar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger-custom text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>Generar PDF
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>
+                    Podés generar el PDF <strong>sin guardar</strong> (solo para revisar/imprimir),
+                    o cancelar y usar los botones <strong>"Guardar borrador"</strong> o
+                    <strong>"Publicar"</strong> según corresponda.
+                </p>
+                <p class="small text-muted mb-0">
+                    Recordá: hasta que no se publique, el documento no queda en el listado oficial
+                    y los cambios son reversibles.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger-custom" id="btn-generar-sin-guardar">
+                    <i class="fas fa-file-pdf mr-1"></i>Generar sin guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if original and not crear_a_partir_de_id %}
+<script id="original-data" type="application/json">{{ original | tojson }}</script>
+{% endif %}
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// 1. Tablas dinamicas (+ / - cantidad de filas)
+// ═══════════════════════════════════════════════════════════════
+(function () {
+    var TABLAS = {
+        'p1':      ['param', 'valor', 'metodo'],
+        'barrera': ['param', 'valor', 'metodo'],
+        'ps':      ['param', 'valor'],
+        'quim':    ['param', 'valor', 'metodo'],
+        'fis':     ['param'],   // fis_valor_comun va como campo aparte
+    };
+
+    var PREFILL = {{ (prefill or {}) | tojson }};
+
+    function crearFila(tablaKey, n) {
+        var cols = TABLAS[tablaKey];
+        var tr = document.createElement('tr');
+        cols.forEach(function (col) {
+            var td = document.createElement('td');
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.name = tablaKey + '_fila' + n + '_' + col;
+            input.className = 'form-control form-control-sm';
+            input.setAttribute('data-contenido', '1');
+            input.value = PREFILL[input.name] || '';
+            td.appendChild(input);
+            tr.appendChild(td);
+        });
+        return tr;
+    }
+
+    function renderizar(tablaKey) {
+        var cant = parseInt(document.getElementById('cant-' + tablaKey).value) || 1;
+        var tbody = document.getElementById('tbody-' + tablaKey);
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        for (var i = 1; i <= cant; i++) {
+            tbody.appendChild(crearFila(tablaKey, i));
+        }
+    }
+
+    Object.keys(TABLAS).forEach(function (k) {
+        if (document.getElementById('cant-' + k)) {
+            renderizar(k);
+        }
+    });
+
+    document.querySelectorAll('[data-accion][data-tabla]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var tabla  = btn.getAttribute('data-tabla');
+            var accion = btn.getAttribute('data-accion');
+            var input  = document.getElementById('cant-' + tabla);
+            var v = parseInt(input.value) || 1;
+            if (accion === 'mas')   v = Math.min(v + 1, 20);
+            if (accion === 'menos') v = Math.max(v - 1, 1);
+            input.value = v;
+            renderizar(tabla);
+        });
+    });
+
+    document.querySelectorAll('[id^="cant-"]').forEach(function (input) {
+        input.addEventListener('change', function () {
+            renderizar(input.id.replace('cant-', ''));
+        });
+    });
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// 2. Anexo automático por versiones previas
+// ═══════════════════════════════════════════════════════════════
+(function () {
+    var inputCodigo  = document.querySelector('[name="codigo_base"]');
+    var chkAnexo     = document.getElementById('chk-anexo');
+    var bodyAnexo    = document.getElementById('body-anexo');
+    var avisoAnexo   = document.getElementById('aviso-anexo');
+    var origenId     = "{{ origen_id or '' }}";
+    var prefillAnexo = {{ 'true' if prefill and prefill.incluir_anexo else 'false' }};
+
+    if (!inputCodigo || !chkAnexo) return;
+
+    if (origenId) {
+        chkAnexo.checked = true;
+    } else if (prefillAnexo) {
+        chkAnexo.checked = true;
+    }
+
+    var timeout = null;
+    var ultimoCodigoConsultado = '';
+
+    function actualizarVisibilidadAnexo() {
+        bodyAnexo.style.display = chkAnexo.checked ? '' : 'none';
+    }
+
+    function consultarVersiones(codigo) {
+        fetch('/especificaciones/api/versiones/' + encodeURIComponent(codigo))
+            .then(r => r.json())
+            .then(data => {
+                if (data.existe) {
+                    chkAnexo.checked = true;
+                    avisoAnexo.innerHTML =
+                        '<span class="text-info"><i class="fas fa-info-circle mr-1"></i>'
+                        + 'Se encontraron ' + data.total + ' version(es) previa(s) de <strong>'
+                        + codigo + '</strong>.</span>';
+                } else {
+                    chkAnexo.checked = false;
+                    avisoAnexo.innerHTML =
+                        '<span class="text-muted"><i class="fas fa-info-circle mr-1"></i>'
+                        + 'No hay versiones previas de <strong>' + codigo + '</strong>.</span>';
+                }
+                avisoAnexo.style.display = '';
+                actualizarVisibilidadAnexo();
+            })
+            .catch(() => {});
+    }
+
+    inputCodigo.addEventListener('input', function () {
+        clearTimeout(timeout);
+        var codigo = inputCodigo.value.trim().toUpperCase();
+        if (!codigo || codigo === ultimoCodigoConsultado) return;
+        timeout = setTimeout(function () {
+            ultimoCodigoConsultado = codigo;
+            consultarVersiones(codigo);
+        }, 500);
+    });
+
+    chkAnexo.addEventListener('change', actualizarVisibilidadAnexo);
+    actualizarVisibilidadAnexo();
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// 3. Validación de versión (si viene de una base)
+// ═══════════════════════════════════════════════════════════════
+$(document).ready(function () {
+    var form = document.getElementById('form-doc');
+    var dataOrigEl = document.getElementById('original-data');
+    if (!dataOrigEl) return;
+
+    var original = JSON.parse(dataOrigEl.textContent);
+
+    function hayCambioContenido() {
+        var campos = document.querySelectorAll('[data-contenido="1"]');
+        for (var i = 0; i < campos.length; i++) {
+            var el = campos[i];
+            var actual = (el.value || '').trim();
+            var orig   = (original[el.name] || '').toString().trim();
+            if (actual !== orig) return true;
+        }
+        return false;
+    }
+
+    function refrescarIndicadores() {
+        var contenidoCambio = hayCambioContenido();
+        var reqVar = document.getElementById('req-variante');
+        var reqRev = document.getElementById('req-revision');
+        var inputVar = document.getElementById('input-variante');
+        var inputRev = document.getElementById('input-revision');
+
+        var varCambio = inputVar.value.toUpperCase() !== (original.variante || '').toUpperCase();
+        var revCambio = parseInt(inputRev.value || 0) !== parseInt(original.revision_str || 0);
+        var necesitaCambiar = contenidoCambio && !varCambio && !revCambio;
+
+        reqVar.style.display = (contenidoCambio && !varCambio) ? 'inline' : 'none';
+        reqRev.style.display = (contenidoCambio && !revCambio) ? 'inline' : 'none';
+        inputVar.classList.toggle('is-invalid', necesitaCambiar);
+        inputRev.classList.toggle('is-invalid', necesitaCambiar);
+    }
+
+    form.addEventListener('input', refrescarIndicadores);
+    refrescarIndicadores();
+
+    form.addEventListener('submit', function (e) {
+        if (!hayCambioContenido()) return true;
+        var inputVar = document.getElementById('input-variante');
+        var inputRev = document.getElementById('input-revision');
+        var varCambio = inputVar.value.toUpperCase() !== (original.variante || '').toUpperCase();
+        var revCambio = parseInt(inputRev.value || 0) !== parseInt(original.revision_str || 0);
+        if (!varCambio && !revCambio) {
+            e.preventDefault();
+            var err = document.getElementById('error-version');
+            err.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i>'
+                          + 'Modificaste el contenido: <strong>cambiá la variante o la revisión</strong>.';
+            err.style.display = 'block';
+            err.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return false;
+        }
+        return true;
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// 4. Acciones: Guardar borrador / Publicar / Generar PDF
+// ═══════════════════════════════════════════════════════════════
+(function () {
+    var form = document.getElementById('form-doc');
+    if (!form) return;
+
+    var TIPO = "{{ tipo }}";
+    var ACCION_BORRADOR = "/especificaciones/tipo/" + TIPO + "/borrador";
+    var ACCION_PUBLICAR = "/especificaciones/tipo/" + TIPO + "/publicar";
+    var ACCION_TEMPORAL = "/especificaciones/tipo/" + TIPO + "/temporal";
+
+    function irA(action, blank) {
+        form.action = action;
+        form.target = blank ? '_blank' : '';
+        form.submit();
+    }
+
+    var btnBorrador = document.getElementById('btn-guardar-borrador');
+    var btnPublicar = document.getElementById('btn-publicar');
+    var btnGenPdf   = document.getElementById('btn-generar-pdf');
+    var btnGenSin   = document.getElementById('btn-generar-sin-guardar');
+
+    if (btnBorrador) {
+        btnBorrador.addEventListener('click', function () {
+            if (!form.checkValidity()) { form.reportValidity(); return; }
+            irA(ACCION_BORRADOR);
+        });
+    }
+
+    if (btnPublicar) {
+        btnPublicar.addEventListener('click', function () {
+            if (!form.checkValidity()) { form.reportValidity(); return; }
+            if (!confirm('¿Publicar este documento? Una vez publicado, no podrá modificarse.')) return;
+            irA(ACCION_PUBLICAR);
+        });
+    }
+
+    if (btnGenPdf) {
+        btnGenPdf.addEventListener('click', function () {
+            if (!form.checkValidity()) { form.reportValidity(); return; }
+            $('#modal-generar').modal('show');
+        });
+    }
+
+    if (btnGenSin) {
+        btnGenSin.addEventListener('click', function () {
+            $('#modal-generar').modal('hide');
+            irA(ACCION_TEMPORAL, true);
+        });
+    }
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// 5. HEARTBEAT: mantener viva la marca de "edición activa"
+// ═══════════════════════════════════════════════════════════════
+(function () {
+    var inputB = document.getElementById('input-borrador-id');
+    if (!inputB || !inputB.value) return;
+
+    var url = "/especificaciones/borrador/" + inputB.value + "/heartbeat";
+
+    function latir() {
+        fetch(url, { method: 'POST' }).catch(function () {});
+    }
+
+    latir();
+    setInterval(latir, 120000);
+
+    ['input', 'change', 'keydown'].forEach(function (ev) {
+        document.addEventListener(ev, function () {
+            var ahora = Date.now();
+            if (!window._ultimoLatido || ahora - window._ultimoLatido > 30000) {
+                window._ultimoLatido = ahora;
+                latir();
+            }
+        }, { passive: true });
+    });
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// 6. RECALCULAR REVISIÓN EN MODO "CREAR A PARTIR DE"
+// ═══════════════════════════════════════════════════════════════
+(function () {
+    var form = document.getElementById('form-doc');
+    if (!form) return;
+    if (form.getAttribute('data-modo') !== 'crear_a_partir_de') return;
+
+    var inputCodigo   = document.querySelector('[name="codigo_base"]');
+    var inputVariante = document.querySelector('[name="variante"]');
+    var inputRevision = document.getElementById('input-revision');
+    if (!inputCodigo || !inputVariante || !inputRevision) return;
+
+    var TIPO         = "{{ tipo }}";
+    var origCodigo   = "{{ original.codigo_base }}".toUpperCase();
+    var origVariante = "{{ original.variante }}".toUpperCase();
+
+    function recalcular() {
+        var cod  = (inputCodigo.value   || '').trim().toUpperCase();
+        var vart = (inputVariante.value || '').trim().toUpperCase();
+
+        if (cod === origCodigo && vart === origVariante) {
+            fetch('/especificaciones/api/versiones/' + encodeURIComponent(cod))
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    var maxRev = -1;
+                    (data.versiones || []).forEach(function (v) {
+                        var vVart = (v.variante || '').toUpperCase();
+                        if (v.tipo === TIPO && vVart === vart && v.revision > maxRev) {
+                            maxRev = v.revision;
+                        }
+                    });
+                    inputRevision.value = String(maxRev + 1).padStart(2, '0');
+                })
+                .catch(function () {});
+        } else {
+            inputRevision.value = '00';
+        }
+    }
+
+    inputCodigo.addEventListener('input', recalcular);
+    inputVariante.addEventListener('input', recalcular);
+})();
+</script>
+{% endblock %}

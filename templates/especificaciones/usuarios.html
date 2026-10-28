@@ -1,0 +1,88 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<h2 class="mb-4" style="color:#2c3e50;"><i class="fas fa-users mr-2"></i>Gestión de Usuarios</h2>
+
+<div class="card card-custom">
+    <div class="card-header bg-primary-custom text-white d-flex justify-content-between">
+        <h5 class="mb-0"><i class="fas fa-list mr-2"></i>Usuarios</h5>
+        <button class="btn btn-light btn-sm" data-toggle="modal" data-target="#modalNuevoUsuario">
+            <i class="fas fa-plus mr-1"></i>Nuevo
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-custom mb-0">
+            <thead>
+                <tr><th>ID</th><th>Usuario</th><th>Admin</th><th>Activo</th><th>Alta</th></tr>
+            </thead>
+            <tbody>
+            {% for u in usuarios %}
+                <tr>
+                    <td>{{ u.id }}</td>
+                    <td><strong>{{ u.nombre }}</strong></td>
+                    <td>{% if u.es_admin %}<span class="badge badge-warning">Sí</span>{% else %}—{% endif %}</td>
+                    <td>{% if u.activo %}<span class="badge badge-success">Activo</span>{% else %}<span class="badge badge-secondary">Inactivo</span>{% endif %}</td>
+                    <td>{{ u.fecha_alta }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="modalNuevoUsuario" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary-custom text-white">
+                <h5 class="modal-title"><i class="fas fa-user-plus mr-2"></i>Nuevo Usuario</h5>
+                <button class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Nombre de usuario</label>
+                    <input type="text" id="nuevo-nombre" class="form-control input-custom">
+                </div>
+                <div class="form-group">
+                    <label>Contraseña</label>
+                    <input type="password" id="nuevo-password" class="form-control input-custom">
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" id="nuevo-admin" class="form-check-input">
+                    <label class="form-check-label" for="nuevo-admin">Es administrador</label>
+                </div>
+                <div id="nuevo-error" class="alert alert-danger mt-3" style="display:none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button class="btn btn-success-custom" id="btn-crear-usuario">Crear</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$('#btn-crear-usuario').on('click', function () {
+    var btn = $(this);
+    btn.prop('disabled', true);
+    $.ajax({
+        url: '/usuarios/crear',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            nombre:   $('#nuevo-nombre').val(),
+            password: $('#nuevo-password').val(),
+            es_admin: $('#nuevo-admin').is(':checked')
+        }),
+        success: function (r) {
+            if (r.success) {
+                location.reload();
+            } else {
+                $('#nuevo-error').text(r.error).show();
+            }
+        },
+        complete: function () { btn.prop('disabled', false); }
+    });
+});
+</script>
+{% endblock %}

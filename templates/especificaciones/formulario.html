@@ -1,0 +1,1073 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<div class="d-flex align-items-center mb-4">
+    {% if origen_id %}
+        <a href="{{ url_for('especificaciones.ver', id_esp=origen_id) }}" class="btn btn-secondary mr-3">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+    {% elif borrador_id %}
+        <a href="{{ url_for('especificaciones.panel') }}" class="btn btn-secondary mr-3">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+    {% elif crear_a_partir_de_id %}
+        <a href="{{ url_for('especificaciones.ver', id_esp=crear_a_partir_de_id) }}" class="btn btn-secondary mr-3">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+    {% else %}
+        <a href="{{ url_for('especificaciones.buscar_tipo', tipo=tipo) }}" class="btn btn-secondary mr-3">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+    {% endif %}
+    <h2 style="color: #2c3e50; margin: 0;">
+        <i class="{{ tipo_info.icono }} mr-2 text-{{ tipo_info.color }}"></i>
+        {{ tipo_info.nombre }}
+        {% if origen_id %}<small class="text-muted">— Nueva versión</small>{% endif %}
+        {% if borrador_id %}<small class="text-muted">— Borrador</small>{% endif %}
+        {% if crear_a_partir_de_id %}<small class="text-muted">— Copia</small>{% endif %}
+    </h2>
+</div>
+
+{% if borrador_id and otro_editando %}
+<div class="alert alert-warning alert-dismissible fade show border-warning">
+    <i class="fas fa-user-edit mr-2"></i>
+    <strong>{{ otro_editando }}</strong> también está editando este borrador ahora mismo.
+    Si los dos guardan cambios, <strong>el último en guardar gana</strong> y el otro
+    recibirá un aviso.
+    <button type="button" class="close" data-dismiss="alert">&times;</button>
+</div>
+{% endif %}
+
+{% if crear_a_partir_de_id %}
+<div class="alert alert-info">
+    <i class="fas fa-clone mr-2"></i>
+    Estás creando una <strong>copia</strong> de
+    <strong>{{ original.codigo_base }}{{ original.variante }}</strong>.
+    Si mantenés el mismo código y variante, se va a guardar como
+    <strong>rev {{ original.revision_str }}</strong> (la siguiente).
+    Si cambiás uno de los dos, la revisión vuelve a <strong>00</strong>.
+</div>
+{% elif original %}
+<div class="alert alert-warning">
+    <i class="fas fa-code-branch mr-2"></i>
+    Estás creando una nueva versión basada en
+    <strong>{{ original.codigo_base }}{{ original.variante }} rev {{ '%02d'|format(original.revision|int) }}</strong>.
+    Si modificás algún campo del contenido, <strong>tenés que cambiar la variante o la revisión</strong>.
+</div>
+{% endif %}
+
+<form method="POST"
+      action="{{ url_for('especificaciones.guardar_borrador', tipo=tipo) }}"
+      id="form-doc"
+      data-origen="{{ '1' if origen_id else '0' }}"
+      data-modo="{% if crear_a_partir_de_id %}crear_a_partir_de{% elif borrador_id %}borrador{% elif origen_id %}nueva_version{% else %}nuevo{% endif %}">
+    {% if origen_id %}<input type="hidden" name="origen_id" value="{{ origen_id }}">{% endif %}
+
+    {% if borrador_id %}
+    <input type="hidden" name="borrador_id" id="input-borrador-id" value="{{ borrador_id }}">
+    {% else %}
+    <input type="hidden" name="borrador_id" id="input-borrador-id" value="">
+    {% endif %}
+
+    {# ─── Bloqueo optimista: fecha original del borrador ─── #}
+    {% if borrador %}
+    <input type="hidden" name="fecha_actualizacion_original" id="input-fecha-orig"
+           value="{{ borrador.fecha_actualizacion }}">
+    {% endif %}
+
+    {# ═══════════════════════════════════════════════ #}
+    {# IDENTIFICACIÓN                                  #}
+    {# ═══════════════════════════════════════════════ #}
+    <div class="card card-custom mb-3">
+        <div class="card-header bg-primary-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-code-branch mr-2"></i>Identificación y versión</h5>
+        </div>
+        <div class="card-body">
+            <div class="form-row">
+                <div class="form-group col-md-3">
+                    <label>Código base <span class="text-danger">*</span></label>
+                    <input type="text" name="codigo_base" class="form-control input-custom"
+                           required placeholder="AL450"
+                           value="{{ prefill.codigo_base if prefill else '' }}">
+                </div>
+                <div class="form-group col-md-2">
+                    <label>Variante <span class="text-danger" id="req-variante" style="display:none;">*</span></label>
+                    <input type="text" name="variante" id="input-variante" maxlength="3"
+                           class="form-control input-custom"
+                           value="{{ prefill.variante if prefill else '' }}">
+                </div>
+                <div class="form-group col-md-2">
+                    <label>Revisión <span class="text-danger" id="req-revision" style="display:none;">*</span></label>
+                    <input type="number" name="revision_str" id="input-revision" min="0" max="99"
+                           class="form-control input-custom"
+                           value="{{ prefill.revision_str if prefill else '00' }}">
+                </div>
+                <div class="form-group col-md-2">
+                    <label>Fecha de revisión</label>
+                    <input type="date" name="fecha_revision" class="form-control input-custom"
+                           value="{{ prefill.fecha_revision if prefill else '' }}">
+                </div>
+                <div class="form-group col-md-3">
+                    <label>Aprobó</label>
+                        <select name="aprobador" class="form-control input-custom">
+                        <option value="">— Seleccionar aprobador —</option>
+                        {% for u in usuarios_aprobadores %}
+                            <option value="{{ u.nombre_completo }}"
+                            {% if prefill and prefill.aprobador == u.nombre_completo %}selected{% endif %}>
+                            {{ u.nombre_completo }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-row mt-2">
+                    <div class="form-group col-md-12 mb-0">
+                        <div class="custom-control custom-checkbox">
+                            <input type="checkbox" class="custom-control-input"
+                                   id="chk-preliminar" name="es_preliminar" value="1"
+                                   {% if prefill and prefill.es_preliminar == "1" %}checked{% endif %}>
+                            <label class="custom-control-label" for="chk-preliminar">
+                                <strong>Versión preliminar</strong>
+                                <span class="text-muted ml-2">
+                                    — agrega <code>-PRELIMINAR-</code> debajo del código en el header del PDF
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ═══════════════════════════════════════════════ #}
+    {# SECCIÓN 1: TIPO DE IMPRESIÓN                    #}
+    {# ═══════════════════════════════════════════════ #}
+    <div class="card card-custom mb-3">
+        <div class="card-header bg-success-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-print mr-2"></i>1. Tipo de impresión</h5>
+        </div>
+        <div class="card-body">
+            <textarea name="texto_tipo_impresion" data-contenido="1"
+                      class="form-control input-custom" rows="3"
+                      placeholder="Ej: Flexografía 8 colores, registro ±0.5mm">{{ prefill.texto_tipo_impresion if prefill else '' }}</textarea>
+        </div>
+    </div>
+
+    {# ═══════════════════════════════════════════════ #}
+    {# SECCIÓN 2: IMAGEN DE DISEÑO                     #}
+    {# ═══════════════════════════════════════════════ #}
+    <div class="card card-custom mb-3">
+        <div class="card-header bg-info-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-image mr-2"></i>2. Imagen de diseño</h5>
+        </div>
+        <div class="card-body">
+            <div class="form-group">
+                <label>Descripción de la imagen</label>
+                <textarea name="texto_imagen_diseno" data-contenido="1"
+                          class="form-control input-custom" rows="3">{{ prefill.texto_imagen_diseno if prefill else '' }}</textarea>
+            </div>
+            <div class="form-group mb-0">
+                <label>Aclaraciones (una por línea)</label>
+                <textarea name="aclaraciones_imagen" data-contenido="1"
+                          class="form-control input-custom" rows="4"
+                          placeholder="- Primera aclaración&#10;- Segunda aclaración">{{ prefill.aclaraciones_imagen if prefill else '' }}</textarea>
+            </div>
+        </div>
+    </div>
+
+    {# ═══════════════════════════════════════════════ #}
+    {# SECCIÓN 3: TINTAS Y PANTONE                     #}
+    {# ═══════════════════════════════════════════════ #}
+    <div class="card card-custom mb-3">
+        <div class="card-header bg-warning-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-palette mr-2"></i>3. Tintas y Pantone</h5>
+        </div>
+        <div class="card-body">
+            <textarea name="tintas_pantone" data-contenido="1"
+                      class="form-control input-custom" rows="4"
+                      placeholder="Ej: Pantone 186 C, 286 C, 116 C...">{{ prefill.tintas_pantone if prefill else '' }}</textarea>
+        </div>
+    </div>
+
+    {# ═══════════════════════════════════════════════ #}
+    {# SECCIÓN 4: CÓDIGOS (QR / BARRAS / AMBOS)        #}
+    {# ═══════════════════════════════════════════════ #}
+    <div class="card card-custom mb-3">
+        <div class="card-header bg-primary-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-barcode mr-2"></i>4. Códigos</h5>
+        </div>
+        <div class="card-body">
+
+            <div class="form-group">
+                <label class="font-weight-bold d-block">Tipo de código</label>
+                <div class="form-check form-check-inline">
+                    <input type="radio" name="tipo_codigo" value="qr" id="tc-qr"
+                           class="form-check-input"
+                           {% if not prefill or prefill.tipo_codigo == 'qr' %}checked{% endif %}>
+                    <label class="form-check-label" for="tc-qr">Solo QR</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input type="radio" name="tipo_codigo" value="barras" id="tc-barras"
+                           class="form-check-input"
+                           {% if prefill and prefill.tipo_codigo == 'barras' %}checked{% endif %}>
+                    <label class="form-check-label" for="tc-barras">Solo Código de barras</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input type="radio" name="tipo_codigo" value="ambos" id="tc-ambos"
+                           class="form-check-input"
+                           {% if prefill and prefill.tipo_codigo == 'ambos' %}checked{% endif %}>
+                    <label class="form-check-label" for="tc-ambos">Ambos</label>
+                </div>
+            </div>
+
+            {# ─── Bloque Código de barras ─── #}
+            <div id="bloque-barras" style="display:none;">
+                <hr>
+                <h6 class="font-weight-bold text-primary mb-2">4.1 Código de barras</h6>
+
+                <div class="form-row">
+                    <div class="form-group col-md-6">
+                        <label>Colores</label>
+                        <input type="text" name="codigos_barras_colores" data-contenido="1"
+                               class="form-control input-custom"
+                               placeholder="Ej: Negro sobre fondo blanco"
+                               value="{{ prefill.codigos_barras_colores if prefill else '' }}">
+                    </div>
+                    <div class="form-group col-md-6">
+                        <label>Sentido de las barras</label>
+                        <input type="text" name="codigos_barras_sentido" data-contenido="1"
+                               class="form-control input-custom"
+                               placeholder="Ej: Vertical"
+                               value="{{ prefill.codigos_barras_sentido if prefill else '' }}">
+                    </div>
+                </div>
+
+                <div class="form-group mb-0">
+                    <label class="d-block">Dimensiones</label>
+                    <div class="form-row">
+                        <div class="form-group col-md-6 mb-0">
+                            <label class="small text-muted mb-1">Área de fondo</label>
+                            <input type="text" name="codigos_barras_area_fondo" data-contenido="1"
+                                   class="form-control input-custom"
+                                   placeholder="Ej: 30 x 20 mm"
+                                   value="{{ prefill.codigos_barras_area_fondo if prefill else '' }}">
+                        </div>
+                        <div class="form-group col-md-6 mb-0">
+                            <label class="small text-muted mb-1">Barras</label>
+                            <input type="text" name="codigos_barras_barras" data-contenido="1"
+                                   class="form-control input-custom"
+                                   placeholder="Ej: 20 x 15 mm"
+                                   value="{{ prefill.codigos_barras_barras if prefill else '' }}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ─── Bloque QR ─── #}
+            <div id="bloque-qr" style="display:none;">
+                <hr>
+                <h6 class="font-weight-bold text-primary mb-2">4.2 QR</h6>
+
+                <div class="form-group">
+                    <label>Colores</label>
+                    <input type="text" name="qr_colores" data-contenido="1"
+                           class="form-control input-custom"
+                           placeholder="Ej: Código QR negro sobre área de fondo blanca"
+                           value="{{ prefill.qr_colores if prefill else '' }}">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group col-md-3">
+                        <label>Área de fondo — Alto (mm)</label>
+                        <input type="number" step="0.1" name="qr_alto_mm" data-contenido="1"
+                               class="form-control input-custom"
+                               value="{{ prefill.qr_alto_mm if prefill else '' }}">
+                    </div>
+                    <div class="form-group col-md-3">
+                        <label>Área de fondo — Ancho (mm)</label>
+                        <input type="number" step="0.1" name="qr_ancho_mm" data-contenido="1"
+                               class="form-control input-custom"
+                               value="{{ prefill.qr_ancho_mm if prefill else '' }}">
+                    </div>
+                    <div class="form-group col-md-3">
+                        <label>Barras (mm)</label>
+                        <input type="text" name="qr_barras" data-contenido="1"
+                               class="form-control input-custom"
+                               placeholder="Ej: 20 x 15"
+                               value="{{ prefill.qr_barras if prefill else '' }}">
+                    </div>
+                    <div class="form-group col-md-3">
+                        <label>URL asociada</label>
+                        <input type="url" name="qr_url" data-contenido="1"
+                               class="form-control input-custom" placeholder="http://..."
+                               value="{{ prefill.qr_url if prefill else '' }}">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    {# ═══════════════════════════════════════════════ #}
+    {# SECCIÓN 5: PRUEBAS DE IMPRESIÓN                 #}
+    {# ═══════════════════════════════════════════════ #}
+    <div class="card card-custom mb-3">
+        <div class="card-header bg-success-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-flask mr-2"></i>5. Pruebas de impresión</h5>
+        </div>
+        <div class="card-body">
+            <div class="form-group" id="seccion-imagen-planteo">
+                <label class="font-weight-bold d-block">5.1 Imagen del planteo gráfico</label>
+
+                <div class="form-check form-check-inline mb-2">
+                    <input type="radio" name="origen_imagen" value="url" id="origen-url"
+                           class="form-check-input" checked>
+                    <label class="form-check-label" for="origen-url">Desde URL</label>
+                </div>
+                <div class="form-check form-check-inline mb-2">
+                    <input type="radio" name="origen_imagen" value="archivo" id="origen-archivo"
+                           class="form-check-input">
+                    <label class="form-check-label" for="origen-archivo">Subir archivo</label>
+                </div>
+
+                {# ─── Modo URL ─── #}
+                <div id="bloque-imagen-url">
+                    <input type="url" name="imagen_planteo_url" data-contenido="1"
+                           class="form-control input-custom" id="input-imagen-url"
+                           placeholder="http://..."
+                           value="{{ prefill.imagen_planteo_url if prefill else '' }}">
+                    <div id="imagen-feedback" class="form-text mt-1"></div>
+                    <div id="imagen-preview"></div>
+                </div>
+
+                {# ─── Modo Archivo ─── #}
+                <div id="bloque-imagen-archivo" style="display:none;">
+                    <div class="input-group">
+                        <div class="custom-file">
+                            <input type="file" class="custom-file-input" id="input-archivo-imagen"
+                                   accept="image/*">
+                            <label class="custom-file-label" for="input-archivo-imagen">
+                                Seleccionar archivo...
+                            </label>
+                        </div>
+                        <div class="input-group-append">
+                            <button type="button" class="btn btn-primary-custom" id="btn-subir-imagen">
+                                <i class="fas fa-upload mr-1"></i>Subir
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="drop-zone" class="mt-2 p-3 text-center"
+                         style="border:2px dashed #ccc; border-radius:6px; color:#888; background:#fafafa;">
+                        <i class="fas fa-cloud-upload-alt fa-2x mb-2"></i><br>
+                        <span class="small">
+                            Arrastrá una imagen acá, o pegala con <kbd>Ctrl</kbd>+<kbd>V</kbd>
+                        </span>
+                    </div>
+
+                    <input type="hidden" name="imagen_planteo_ruta" id="input-imagen-ruta"
+                           value="{{ prefill.imagen_planteo_ruta if prefill else '' }}">
+                    <div id="upload-feedback" class="form-text mt-1"></div>
+                    <div id="upload-preview" class="mt-2"></div>
+                </div>
+            </div>
+
+            <h6 class="mt-4 mb-3 d-flex justify-content-between align-items-center">
+                <span>Elementos del planteo gráfico</span>
+                <button type="button" class="btn btn-sm btn-primary-custom" id="btn-add-elemento">
+                    <i class="fas fa-plus mr-1"></i>Agregar fila
+                </button>
+            </h6>
+
+            {% if prefill and prefill.elemento_filas %}
+                {% set filas = prefill.elemento_filas %}
+            {% else %}
+                {% set filas = [
+                    {'nombre': 'FONDO',
+                     'items':     (prefill.elemento_fondo_items     if prefill else '') or '',
+                     'criterios': (prefill.elemento_fondo_criterios if prefill else '') or ''},
+                    {'nombre': 'LOGO MAPSA sin sombra de apoyo',
+                     'items':     (prefill.elemento_logo_items      if prefill else '') or '',
+                     'criterios': (prefill.elemento_logo_criterios  if prefill else '') or ''},
+                    {'nombre': 'FOTO',
+                     'items':     (prefill.elemento_foto_items      if prefill else '') or '',
+                     'criterios': (prefill.elemento_foto_criterios  if prefill else '') or ''}
+                ] %}
+            {% endif %}
+
+            <table class="table table-sm table-bordered" id="tabla-elementos">
+                <thead class="thead-light">
+                    <tr>
+                        <th width="5%">N°</th>
+                        <th width="25%">Nombre del elemento</th>
+                        <th>Características</th>
+                        <th>Criterios</th>
+                        <th width="5%"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for el in filas %}
+                    <tr class="fila-elemento">
+                        <td class="text-center num-elemento">{{ loop.index0 }}</td>
+                        <td><textarea name="elemento_fila{{ loop.index }}_nombre" data-sufijo="nombre"
+                                      data-contenido="1" class="form-control form-control-sm" rows="2">{{ el.nombre }}</textarea></td>
+                        <td><textarea name="elemento_fila{{ loop.index }}_items" data-sufijo="items"
+                                      data-contenido="1" class="form-control form-control-sm" rows="2">{{ el['items'] }}</textarea></td>
+                        <td><textarea name="elemento_fila{{ loop.index }}_criterios" data-sufijo="criterios"
+                                      data-contenido="1" class="form-control form-control-sm" rows="2">{{ el.criterios }}</textarea></td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-sm btn-outline-danger btn-del-elemento">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {# ═══════════════════════════════════════════════ #}
+    {# SECCIÓN 6: DISTRIBUCIÓN DIMENSIONAL             #}
+    {# ═══════════════════════════════════════════════ #}
+    <div class="card card-custom mb-3">
+        <div class="card-header bg-info-custom text-white">
+            <h5 class="mb-0"><i class="fas fa-ruler-combined mr-2"></i>6. Distribución dimensional en plano</h5>
+        </div>
+        <div class="card-body">
+            <textarea name="distribucion_dimensional" data-contenido="1"
+                      class="form-control input-custom" rows="4">{{ prefill.distribucion_dimensional if prefill else '' }}</textarea>
+        </div>
+    </div>
+
+    {# ═══════════════════════════════════════════════ #}
+    {# ANEXO (condicional)                             #}
+    {# ═══════════════════════════════════════════════ #}
+    <div class="card card-custom mb-3" id="card-anexo">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-list-alt mr-2"></i>Anexo — Detalle del cambio</h5>
+            <div class="form-check form-check-inline mb-0">
+                <input type="checkbox" class="form-check-input" id="chk-anexo" name="incluir_anexo" value="1"
+                       {% if prefill and prefill.incluir_anexo %}checked{% endif %}>
+                <label class="form-check-label text-white" for="chk-anexo">
+                    Incluir anexo
+                </label>
+            </div>
+        </div>
+        <div class="card-body" id="body-anexo">
+            <div id="aviso-anexo" class="small mb-2" style="display:none;"></div>
+            <textarea name="anexo_detalle_cambios" data-contenido="1"
+                      class="form-control input-custom" rows="3"
+                      placeholder="Motivo del cambio respecto a la versión anterior...">{{ prefill.anexo_detalle_cambios if prefill else '' }}</textarea>
+        </div>
+    </div>
+
+    {# ═══════════════════════════════════════════════ #}
+    {# ERRORES + BOTONES                               #}
+    {# ═══════════════════════════════════════════════ #}
+    <div id="error-version" class="alert alert-danger" style="display:none;"></div>
+
+    <div class="text-right mb-4">
+        {% if origen_id %}
+            <a href="{{ url_for('especificaciones.ver', id_esp=origen_id) }}" class="btn btn-secondary">
+                <i class="fas fa-times mr-1"></i>Cancelar
+            </a>
+        {% elif borrador_id %}
+            <a href="{{ url_for('especificaciones.panel') }}" class="btn btn-secondary">
+                <i class="fas fa-times mr-1"></i>Volver al panel
+            </a>
+        {% elif crear_a_partir_de_id %}
+            <a href="{{ url_for('especificaciones.ver', id_esp=crear_a_partir_de_id) }}" class="btn btn-secondary">
+                <i class="fas fa-times mr-1"></i>Cancelar
+            </a>
+        {% else %}
+            <a href="{{ url_for('especificaciones.buscar_tipo', tipo=tipo) }}" class="btn btn-secondary">
+                <i class="fas fa-times mr-1"></i>Cancelar
+            </a>
+        {% endif %}
+
+        <button type="button" class="btn btn-warning-custom" id="btn-guardar-borrador">
+            <i class="fas fa-save mr-1"></i>Guardar borrador
+        </button>
+
+        <button type="button" class="btn btn-success-custom" id="btn-publicar">
+            <i class="fas fa-check-circle mr-1"></i>Publicar
+        </button>
+
+        <button type="button" class="btn btn-danger-custom" id="btn-generar-pdf">
+            <i class="fas fa-file-pdf mr-1"></i>Generar PDF
+        </button>
+    </div>
+</form>
+
+{# ─── Modal para "Generar PDF" ─── #}
+<div class="modal fade" id="modal-generar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger-custom text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle mr-2"></i>Generar PDF
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>
+                    Podés generar el PDF <strong>sin guardar</strong> (solo para revisar/imprimir),
+                    o cancelar y usar los botones <strong>"Guardar borrador"</strong> o
+                    <strong>"Publicar"</strong> según corresponda.
+                </p>
+                <p class="small text-muted mb-0">
+                    Recordá: hasta que no se publique, el documento no queda en el listado oficial
+                    y los cambios son reversibles.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger-custom" id="btn-generar-sin-guardar">
+                    <i class="fas fa-file-pdf mr-1"></i>Generar sin guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if original and not crear_a_partir_de_id %}
+<script id="original-data" type="application/json">{{ original | tojson }}</script>
+{% endif %}
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// MÓDULO REUTILIZABLE: Dropzone + Paste + Upload con dedupe
+// ═══════════════════════════════════════════════════════════════
+window.ImageDropzone = (function () {
+    function init(cfg) {
+        var inputFile  = document.getElementById(cfg.inputFile);
+        var inputRuta  = document.getElementById(cfg.inputHidden);
+        var feedbackEl = document.getElementById(cfg.feedback);
+        var previewEl  = document.getElementById(cfg.preview);
+        var dropZone   = cfg.dropZone ? document.getElementById(cfg.dropZone) : null;
+        var btnSubir   = cfg.button   ? document.getElementById(cfg.button)   : null;
+        var uploadUrl  = cfg.uploadUrl || '/especificaciones/subir-imagen';
+
+        if (!inputFile || !inputRuta || !feedbackEl || !previewEl) return;
+
+        if (inputRuta.value) {
+            previewEl.innerHTML =
+                '<img src="/especificaciones/uploads/' + inputRuta.value +
+                '" style="max-height:140px;border:1px solid #ddd;border-radius:4px;padding:4px;">';
+            feedbackEl.innerHTML = '<span class="text-success"><i class="fas fa-check"></i> Archivo cargado</span>';
+        }
+
+        function mostrarNombre(nombre) {
+            var label = document.querySelector('label[for="' + cfg.inputFile + '"]');
+            if (label) label.textContent = nombre || 'Seleccionar archivo...';
+        }
+
+        function subirArchivo(file) {
+            if (!file) return;
+
+            var fd = new FormData();
+            fd.append('archivo', file);
+
+            if (btnSubir) {
+                btnSubir.disabled = true;
+                btnSubir.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            }
+            feedbackEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Subiendo...';
+
+            fetch(uploadUrl, { method: 'POST', body: fd })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.ok) {
+                        inputRuta.value = data.ruta;
+                        var extra = data.reutilizada
+                            ? ' <small class="text-muted">(ya existía, se reutilizó)</small>'
+                            : '';
+                        feedbackEl.innerHTML =
+                            '<span class="text-success"><i class="fas fa-check"></i> Archivo cargado</span>' + extra;
+                        previewEl.innerHTML =
+                            '<img src="' + data.url_preview +
+                            '" style="max-height:140px;border:1px solid #ddd;border-radius:4px;padding:4px;">';
+                    } else {
+                        feedbackEl.innerHTML =
+                            '<span class="text-danger"><i class="fas fa-times"></i> ' +
+                            (data.error || 'Error') + '</span>';
+                    }
+                })
+                .catch(function () {
+                    feedbackEl.innerHTML = '<span class="text-danger">Error de comunicación</span>';
+                })
+                .finally(function () {
+                    if (btnSubir) {
+                        btnSubir.disabled = false;
+                        btnSubir.innerHTML = '<i class="fas fa-upload mr-1"></i>Subir';
+                    }
+                });
+        }
+
+        inputFile.addEventListener('change', function () {
+            mostrarNombre(inputFile.files[0] ? inputFile.files[0].name : '');
+        });
+
+        if (btnSubir) {
+            btnSubir.addEventListener('click', function () {
+                if (!inputFile.files.length) {
+                    feedbackEl.innerHTML =
+                        '<span class="text-danger">Seleccioná, arrastrá o pegá un archivo primero</span>';
+                    return;
+                }
+                subirArchivo(inputFile.files[0]);
+            });
+        }
+
+        if (dropZone) {
+            ['dragenter', 'dragover'].forEach(function (ev) {
+                dropZone.addEventListener(ev, function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropZone.style.background = '#eaf4ff';
+                    dropZone.style.borderColor = '#5b9bd5';
+                });
+            });
+            ['dragleave', 'drop'].forEach(function (ev) {
+                dropZone.addEventListener(ev, function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropZone.style.background = '#fafafa';
+                    dropZone.style.borderColor = '#ccc';
+                });
+            });
+            dropZone.addEventListener('drop', function (e) {
+                var dt = e.dataTransfer;
+                if (!dt || !dt.files || !dt.files.length) return;
+                var file = dt.files[0];
+                if (!file.type.startsWith('image/')) {
+                    feedbackEl.innerHTML =
+                        '<span class="text-danger">El archivo no es una imagen</span>';
+                    return;
+                }
+                mostrarNombre(file.name);
+                subirArchivo(file);
+            });
+        }
+
+        document.addEventListener('paste', function (e) {
+            var radioArch = document.getElementById('origen-archivo');
+            if (!radioArch || !radioArch.checked) return;
+
+            var ae = document.activeElement;
+            if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA') &&
+                ae.type !== 'file') return;
+
+            var items = (e.clipboardData || window.clipboardData || {}).items || [];
+            for (var i = 0; i < items.length; i++) {
+                if (items[i].type && items[i].type.indexOf('image') !== -1) {
+                    var file = items[i].getAsFile();
+                    if (file) {
+                        e.preventDefault();
+                        mostrarNombre(file.name || 'imagen_pegada.png');
+                        subirArchivo(file);
+                    }
+                    return;
+                }
+            }
+        });
+    }
+
+    return { init: init };
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// 1. Imagen del planteo — modo URL o Archivo
+// ═══════════════════════════════════════════════════════════════
+(function () {
+    var radioUrl     = document.getElementById('origen-url');
+    var radioArch    = document.getElementById('origen-archivo');
+    var bloqueUrl    = document.getElementById('bloque-imagen-url');
+    var bloqueArch   = document.getElementById('bloque-imagen-archivo');
+    if (!radioUrl || !radioArch) return;
+
+    function actualizarModo() {
+        var esUrl = radioUrl.checked;
+        bloqueUrl.style.display  = esUrl ? '' : 'none';
+        bloqueArch.style.display = esUrl ? 'none' : '';
+    }
+    radioUrl.addEventListener('change', actualizarModo);
+    radioArch.addEventListener('change', actualizarModo);
+    actualizarModo();
+
+    var inputUrl    = document.getElementById('input-imagen-url');
+    var feedbackUrl = document.getElementById('imagen-feedback');
+    var previewUrl  = document.getElementById('imagen-preview');
+    var timeoutUrl  = null;
+
+    inputUrl.addEventListener('input', function () {
+        clearTimeout(timeoutUrl);
+        var url = inputUrl.value.trim();
+        previewUrl.innerHTML = '';
+        if (!url) { feedbackUrl.innerHTML = ''; return; }
+
+        feedbackUrl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verificando...';
+        timeoutUrl = setTimeout(function () {
+            fetch('/especificaciones/verificar-imagen?url=' + encodeURIComponent(url))
+                .then(r => r.json())
+                .then(data => {
+                    if (data.valida) {
+                        feedbackUrl.innerHTML = '<span class="text-success"><i class="fas fa-check"></i> Imagen válida</span>';
+                        previewUrl.innerHTML = '<img src="' + url + '" style="max-height:120px;margin-top:8px;border:1px solid #ddd;border-radius:4px;padding:4px;">';
+                    } else {
+                        feedbackUrl.innerHTML = '<span class="text-danger"><i class="fas fa-times"></i> ' + data.mensaje + '</span>';
+                    }
+                })
+                .catch(() => {
+                    feedbackUrl.innerHTML = '<span class="text-danger">Error verificando</span>';
+                });
+        }, 500);
+    });
+
+    ImageDropzone.init({
+        inputFile:   'input-archivo-imagen',
+        inputHidden: 'input-imagen-ruta',
+        button:      'btn-subir-imagen',
+        dropZone:    'drop-zone',
+        feedback:    'upload-feedback',
+        preview:     'upload-preview',
+        uploadUrl:   '/especificaciones/subir-imagen'
+    });
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// 2. Selector de tipo de código (QR / Barras / Ambos)
+// ═══════════════════════════════════════════════════════════════
+(function () {
+    var radios     = document.querySelectorAll('[name="tipo_codigo"]');
+    var bloqueQr   = document.getElementById('bloque-qr');
+    var bloqueBarr = document.getElementById('bloque-barras');
+    if (!radios.length || !bloqueQr || !bloqueBarr) return;
+
+    function actualizar() {
+        var checked = document.querySelector('[name="tipo_codigo"]:checked');
+        if (!checked) return;
+        var valor = checked.value;
+        bloqueQr.style.display   = (valor === 'qr'     || valor === 'ambos') ? '' : 'none';
+        bloqueBarr.style.display = (valor === 'barras' || valor === 'ambos') ? '' : 'none';
+    }
+
+    radios.forEach(r => r.addEventListener('change', actualizar));
+    actualizar();
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// 3. Verificación de versiones previas (para anexo automático)
+// ═══════════════════════════════════════════════════════════════
+(function () {
+    var inputCodigo  = document.querySelector('[name="codigo_base"]');
+    var chkAnexo     = document.getElementById('chk-anexo');
+    var bodyAnexo    = document.getElementById('body-anexo');
+    var avisoAnexo   = document.getElementById('aviso-anexo');
+    var origenId     = "{{ origen_id or '' }}";
+    var prefillAnexo = {{ 'true' if prefill and prefill.incluir_anexo else 'false' }};
+
+    if (!inputCodigo || !chkAnexo) return;
+
+    if (origenId) {
+        chkAnexo.checked = true;
+    } else if (prefillAnexo) {
+        chkAnexo.checked = true;
+    }
+
+    var timeout = null;
+    var ultimoCodigoConsultado = '';
+
+    function actualizarVisibilidadAnexo() {
+        bodyAnexo.style.display = chkAnexo.checked ? '' : 'none';
+    }
+
+    function consultarVersiones(codigo) {
+        fetch('/especificaciones/api/versiones/' + encodeURIComponent(codigo))
+            .then(r => r.json())
+            .then(data => {
+                if (data.existe) {
+                    chkAnexo.checked = true;
+                    avisoAnexo.innerHTML =
+                        '<span class="text-info">'
+                        + '<i class="fas fa-info-circle mr-1"></i>'
+                        + 'Se encontraron ' + data.total + ' versión(es) previa(s) de <strong>'
+                        + codigo + '</strong>. Completá el detalle del cambio.'
+                        + '</span>';
+                } else {
+                    chkAnexo.checked = false;
+                    avisoAnexo.innerHTML =
+                        '<span class="text-muted">'
+                        + '<i class="fas fa-info-circle mr-1"></i>'
+                        + 'No hay versiones previas de <strong>' + codigo + '</strong>. '
+                        + 'El anexo no es obligatorio.'
+                        + '</span>';
+                }
+                avisoAnexo.style.display = '';
+                actualizarVisibilidadAnexo();
+            })
+            .catch(() => {
+                avisoAnexo.innerHTML = '<span class="text-muted">No se pudo verificar versiones previas.</span>';
+                avisoAnexo.style.display = '';
+            });
+    }
+
+    inputCodigo.addEventListener('input', function () {
+        clearTimeout(timeout);
+        var codigo = inputCodigo.value.trim().toUpperCase();
+        if (!codigo || codigo === ultimoCodigoConsultado) return;
+
+        timeout = setTimeout(function () {
+            ultimoCodigoConsultado = codigo;
+            consultarVersiones(codigo);
+        }, 500);
+    });
+
+    chkAnexo.addEventListener('change', actualizarVisibilidadAnexo);
+    actualizarVisibilidadAnexo();
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// 4. Validación de versión (si viene de una base)
+// ═══════════════════════════════════════════════════════════════
+$(document).ready(function () {
+    var form = document.getElementById('form-doc');
+    var dataOrigEl = document.getElementById('original-data');
+    if (!dataOrigEl) return;
+
+    var original = JSON.parse(dataOrigEl.textContent);
+
+    function hayCambioContenido() {
+        var campos = document.querySelectorAll('[data-contenido="1"]');
+        for (var i = 0; i < campos.length; i++) {
+            var el = campos[i];
+            var actual = (el.value || '').trim();
+            var orig   = (original[el.name] || '').toString().trim();
+            if (actual !== orig) return true;
+        }
+        return false;
+    }
+
+    function refrescarIndicadores() {
+        var contenidoCambio = hayCambioContenido();
+        var reqVar = document.getElementById('req-variante');
+        var reqRev = document.getElementById('req-revision');
+        var inputVar = document.getElementById('input-variante');
+        var inputRev = document.getElementById('input-revision');
+
+        var varCambio = inputVar.value.toUpperCase() !== (original.variante || '').toUpperCase();
+        var revCambio = parseInt(inputRev.value || 0) !== parseInt(original.revision_str || 0);
+
+        var necesitaCambiar = contenidoCambio && !varCambio && !revCambio;
+
+        reqVar.style.display = (contenidoCambio && !varCambio) ? 'inline' : 'none';
+        reqRev.style.display = (contenidoCambio && !revCambio) ? 'inline' : 'none';
+        inputVar.classList.toggle('is-invalid', necesitaCambiar);
+        inputRev.classList.toggle('is-invalid', necesitaCambiar);
+    }
+
+    form.addEventListener('input', refrescarIndicadores);
+    refrescarIndicadores();
+
+    form.addEventListener('submit', function (e) {
+        if (!hayCambioContenido()) return true;
+
+        var inputVar = document.getElementById('input-variante');
+        var inputRev = document.getElementById('input-revision');
+
+        var varCambio = inputVar.value.toUpperCase() !== (original.variante || '').toUpperCase();
+        var revCambio = parseInt(inputRev.value || 0) !== parseInt(original.revision_str || 0);
+
+        if (!varCambio && !revCambio) {
+            e.preventDefault();
+            var err = document.getElementById('error-version');
+            err.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i>'
+                          + 'Modificaste el contenido: <strong>cambiá la variante o la revisión</strong> '
+                          + 'antes de generar la nueva versión.';
+            err.style.display = 'block';
+            err.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return false;
+        }
+        return true;
+    });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// 5. Tabla dinámica: Elementos del planteo gráfico
+// ═══════════════════════════════════════════════════════════════
+(function () {
+    var tbody  = document.querySelector('#tabla-elementos tbody');
+    var btnAdd = document.getElementById('btn-add-elemento');
+    if (!tbody || !btnAdd) return;
+
+    var MAX_FILAS = 30;
+
+    function renumber() {
+        tbody.querySelectorAll('tr.fila-elemento').forEach(function (tr, idx) {
+            tr.querySelector('.num-elemento').textContent = idx;
+            tr.querySelectorAll('textarea[data-sufijo]').forEach(function (ta) {
+                ta.name = 'elemento_fila' + (idx + 1) + '_' + ta.getAttribute('data-sufijo');
+            });
+        });
+    }
+
+    function crearFila(nombre, items, criterios) {
+        var tr = document.createElement('tr');
+        tr.className = 'fila-elemento';
+        tr.innerHTML =
+            '<td class="text-center num-elemento"></td>' +
+            '<td><textarea data-sufijo="nombre" data-contenido="1" class="form-control form-control-sm" rows="2"></textarea></td>' +
+            '<td><textarea data-sufijo="items" data-contenido="1" class="form-control form-control-sm" rows="2"></textarea></td>' +
+            '<td><textarea data-sufijo="criterios" data-contenido="1" class="form-control form-control-sm" rows="2"></textarea></td>' +
+            '<td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger btn-del-elemento"><i class="fas fa-times"></i></button></td>';
+        var tas = tr.querySelectorAll('textarea');
+        tas[0].value = nombre   || '';
+        tas[1].value = items    || '';
+        tas[2].value = criterios || '';
+        return tr;
+    }
+
+    btnAdd.addEventListener('click', function () {
+        if (tbody.querySelectorAll('tr.fila-elemento').length >= MAX_FILAS) return;
+        tbody.appendChild(crearFila('', '', ''));
+        renumber();
+    });
+
+    tbody.addEventListener('click', function (e) {
+        var btn = e.target.closest('.btn-del-elemento');
+        if (!btn) return;
+        btn.closest('tr.fila-elemento').remove();
+        renumber();
+    });
+
+    renumber();
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// 6. Acciones: Guardar borrador / Publicar / Generar PDF
+// ═══════════════════════════════════════════════════════════════
+(function () {
+    var form = document.getElementById('form-doc');
+    if (!form) return;
+
+    var TIPO = "{{ tipo }}";
+    var ACCION_BORRADOR = "/especificaciones/tipo/" + TIPO + "/borrador";
+    var ACCION_PUBLICAR = "/especificaciones/tipo/" + TIPO + "/publicar";
+    var ACCION_TEMPORAL = "/especificaciones/tipo/" + TIPO + "/temporal";
+
+    function irA(action, blank) {
+        form.action  = action;
+        form.target  = blank ? '_blank' : '';
+        form.submit();
+    }
+
+    var btnBorrador = document.getElementById('btn-guardar-borrador');
+    var btnPublicar = document.getElementById('btn-publicar');
+    var btnGenPdf   = document.getElementById('btn-generar-pdf');
+    var btnGenSin   = document.getElementById('btn-generar-sin-guardar');
+
+    if (btnBorrador) {
+        btnBorrador.addEventListener('click', function () {
+            if (!form.checkValidity()) { form.reportValidity(); return; }
+            irA(ACCION_BORRADOR);
+        });
+    }
+
+    if (btnPublicar) {
+        btnPublicar.addEventListener('click', function () {
+            if (!form.checkValidity()) { form.reportValidity(); return; }
+            if (!confirm('¿Publicar este documento? Una vez publicado, no podrá modificarse.')) return;
+            irA(ACCION_PUBLICAR);
+        });
+    }
+
+    if (btnGenPdf) {
+        btnGenPdf.addEventListener('click', function () {
+            if (!form.checkValidity()) { form.reportValidity(); return; }
+            $('#modal-generar').modal('show');
+        });
+    }
+
+    if (btnGenSin) {
+        btnGenSin.addEventListener('click', function () {
+            $('#modal-generar').modal('hide');
+            irA(ACCION_TEMPORAL, true);
+        });
+    }
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// 7. HEARTBEAT: mantener viva la marca de "edición activa"
+// ═══════════════════════════════════════════════════════════════
+(function () {
+    var inputB = document.getElementById('input-borrador-id');
+    if (!inputB || !inputB.value) return;
+
+    var url = "/especificaciones/borrador/" + inputB.value + "/heartbeat";
+
+    function latir() {
+        fetch(url, { method: 'POST' }).catch(function () {});
+    }
+
+    latir();
+    setInterval(latir, 120000);
+
+    ['input', 'change', 'keydown'].forEach(function (ev) {
+        document.addEventListener(ev, function () {
+            var ahora = Date.now();
+            if (!window._ultimoLatido || ahora - window._ultimoLatido > 30000) {
+                window._ultimoLatido = ahora;
+                latir();
+            }
+        }, { passive: true });
+    });
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// 8. RECALCULAR REVISIÓN EN MODO "CREAR A PARTIR DE"
+// ═══════════════════════════════════════════════════════════════
+(function () {
+    var form = document.getElementById('form-doc');
+    if (!form) return;
+    if (form.getAttribute('data-modo') !== 'crear_a_partir_de') return;
+
+    var inputCodigo   = document.querySelector('[name="codigo_base"]');
+    var inputVariante = document.querySelector('[name="variante"]');
+    var inputRevision = document.getElementById('input-revision');
+    if (!inputCodigo || !inputVariante || !inputRevision) return;
+
+    var TIPO         = "{{ tipo }}";
+    var origCodigo   = "{{ original.codigo_base }}".toUpperCase();
+    var origVariante = "{{ original.variante }}".toUpperCase();
+
+    function recalcular() {
+        var cod  = (inputCodigo.value   || '').trim().toUpperCase();
+        var vart = (inputVariante.value || '').trim().toUpperCase();
+
+        if (cod === origCodigo && vart === origVariante) {
+            fetch('/especificaciones/api/versiones/' + encodeURIComponent(cod))
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    var maxRev = -1;
+                    (data.versiones || []).forEach(function (v) {
+                        var vVart = (v.variante || '').toUpperCase();
+                        if (v.tipo === TIPO && vVart === vart && v.revision > maxRev) {
+                            maxRev = v.revision;
+                        }
+                    });
+                    inputRevision.value = String(maxRev + 1).padStart(2, '0');
+                })
+                .catch(function () {});
+        } else {
+            inputRevision.value = '00';
+        }
+    }
+
+    inputCodigo.addEventListener('input', recalcular);
+    inputVariante.addEventListener('input', recalcular);
+})();
+</script>
+{% endblock %}

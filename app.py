@@ -4,7 +4,11 @@ from config import Config
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Registrar blueprints
+# ══════════════════════════════════════════════════════════════════
+# IMPORTS DE BLUEPRINTS
+# ══════════════════════════════════════════════════════════════════
+
+# Blueprints existentes de EmpaqueWeb
 from routes.auth import auth_bp
 from routes.pedidos import pedidos_bp
 from routes.pickeo import pickeo_bp
@@ -21,7 +25,16 @@ from routes.desempacar import desempacar_bp
 from routes.visor_pdf import visor_pdf_bp
 from routes.reportes_vencimientos import reportes_vencimientos_bp
 
+# Nuevo módulo de Especificaciones
+from routes.especificaciones import especificaciones_bp
+from routes.especificaciones.envios_queue import iniciar_worker
 
+
+# ══════════════════════════════════════════════════════════════════
+# REGISTRO DE BLUEPRINTS
+# ══════════════════════════════════════════════════════════════════
+
+# Blueprints existentes
 app.register_blueprint(auth_bp)
 app.register_blueprint(pedidos_bp)
 app.register_blueprint(pickeo_bp)
@@ -38,12 +51,23 @@ app.register_blueprint(desempacar_bp)
 app.register_blueprint(visor_pdf_bp)
 app.register_blueprint(reportes_vencimientos_bp)
 
+# Nuevo módulo de Especificaciones
+app.register_blueprint(especificaciones_bp)
+
+# Iniciar el worker de envíos de correo en segundo plano
+iniciar_worker()
+
+
+# ══════════════════════════════════════════════════════════════════
+# RUTAS Y FILTROS GLOBALES
+# ══════════════════════════════════════════════════════════════════
 
 @app.route('/')
 def index():
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
     return render_template('index.html')
+
 
 @app.template_filter('format_date')
 def format_date(value):
@@ -58,6 +82,7 @@ def format_date(value):
         if hasattr(value, 'strftime'):
             return value.strftime('%d/%m/%Y')
     return ''
+
 
 @app.template_filter('formato_cantidad')
 def formato_cantidad(value):
@@ -74,6 +99,6 @@ def formato_cantidad(value):
     except:
         return str(value)
 
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)
-    #app.run(debug=True)

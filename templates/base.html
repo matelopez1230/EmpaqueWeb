@@ -216,6 +216,28 @@
                         {% endfor %}
                     </div>
                 </li>
+
+                <!-- ═══════════════════════════════════════════════════════
+                     Grupo Especificaciones (NUEVO)
+                     Solo se muestra si el usuario tiene al menos un menú
+                     con grupo = 'ESPECIFICACIONES' en EmpWebPermisosUsuario
+                     ═══════════════════════════════════════════════════════ -->
+                {% set menus_esp = session.menus | selectattr('grupo', 'equalto', 'ESPECIFICACIONES') | list %}
+                {% if menus_esp %}
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownEsp" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        <i class="fas fa-file-alt mr-1"></i> Especificaciones
+                    </a>
+                    <div class="dropdown-menu" aria-labelledby="navbarDropdownEsp">
+                        {% for menu in menus_esp %}
+                        <a class="dropdown-item" href="{{ menu.url }}">
+                            {% if menu.icono %}<i class="{{ menu.icono }} mr-2"></i>{% endif %}
+                            {{ menu.nombre }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </li>
+                {% endif %}
             </ul>
             
             <!-- Dropdown de usuario -->
@@ -227,7 +249,10 @@
                     <a class="dropdown-item" href="#" data-toggle="modal" data-target="#modalCambiarPassword">
                         <i class="fas fa-key mr-2"></i> Cambiar Contraseña
                     </a>
-                    <div class="dropdown-divider"></div>
+                <div class="dropdown-divider"></div>
+                    <a class="dropdown-item" href="#" data-toggle="modal" data-target="#modalMiEmail">
+                        <i class="fas fa-envelope mr-2"></i> Mi email de envío
+                    </a>
                     <a class="dropdown-item" href="{{ url_for('auth.logout') }}">
                         <i class="fas fa-sign-out-alt mr-2"></i> Salir
                     </a>
@@ -292,6 +317,40 @@
         </div>
     </div>
     
+        <!-- Modal Mi email de envío (NUEVO) -->
+    <div class="modal fade" id="modalMiEmail" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-envelope mr-2"></i>Mi email de envío
+                    </h5>
+                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group mb-0">
+                        <label for="mi-email-input">Email con el que se enviarán tus correos</label>
+                        <input type="email" id="mi-email-input" class="form-control"
+                               placeholder="usuario@chocolatesmapsa.com"
+                               autocomplete="off">
+                        <small class="form-text text-muted">
+                            Este email figurará como remitente en los correos que envíes.
+                        </small>
+                    </div>
+                    <div id="mi-email-feedback" class="form-text mt-2"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-info" id="btn-guardar-mi-email">
+                        <i class="fas fa-save mr-1"></i>Guardar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- SCRIPTS - Orden corregido: jQuery primero, luego Bootstrap, luego scripts personalizados -->
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -374,6 +433,65 @@
             $('#password-confirm').val('');
             $('#password-error').hide();
             $('#password-success').hide();
+        });
+
+                // ═══ Mi email de envío ═══
+        $('#modalMiEmail').on('show.bs.modal', function () {
+            $('#mi-email-input').val('');
+            $('#mi-email-feedback').html('');
+            $('#btn-guardar-mi-email').prop('disabled', false)
+                .html('<i class="fas fa-save mr-1"></i>Guardar');
+
+            $.ajax({
+                url: '/especificaciones/api/mi-remitente',
+                method: 'GET',
+                success: function (d) {
+                    if (d.success) $('#mi-email-input').val(d.email || '');
+                },
+                error: function () {
+                    $('#mi-email-feedback').html(
+                        '<span class="text-danger">No se pudo cargar tu email actual.</span>'
+                    );
+                }
+            });
+        });
+
+        $('#btn-guardar-mi-email').on('click', function () {
+            var email = ($('#mi-email-input').val() || '').trim().toLowerCase();
+            if (!email || email.indexOf('@') === -1) {
+                $('#mi-email-feedback').html(
+                    '<span class="text-danger">Ingresá un email válido.</span>'
+                );
+                return;
+            }
+
+            var $b = $(this);
+            $b.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i>Guardando...');
+            $('#mi-email-feedback').html('');
+
+            $.ajax({
+                url: '/especificaciones/api/mi-remitente',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ email: email }),
+                success: function (d) {
+                    if (d.success) {
+                        $('#mi-email-feedback').html('<span class="text-success">Guardado.</span>');
+                        setTimeout(function () { $('#modalMiEmail').modal('hide'); }, 800);
+                    } else {
+                        $('#mi-email-feedback').html(
+                            '<span class="text-danger">' + (d.error || 'Error') + '</span>'
+                        );
+                        $b.prop('disabled', false).html('<i class="fas fa-save mr-1"></i>Guardar');
+                    }
+                },
+                error: function (xhr) {
+                    var msg = 'Error de comunicación';
+                    try { msg = xhr.responseJSON.error || msg; } catch (e) {}
+                    $('#mi-email-feedback').html('<span class="text-danger">' + msg + '</span>');
+                    $b.prop('disabled', false).html('<i class="fas fa-save mr-1"></i>Guardar');
+                }
+            });
         });
     </script>
     

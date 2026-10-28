@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+
+    <!-- Header del tipo -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
+        <div class="mb-2">
+            <h2 class="mb-1">
+                <i class="{{ tipo_info.icono }} mr-2" style="color: var(--primary-color);"></i>
+                {{ tipo_info.nombre }}
+            </h2>
+            <p class="text-muted mb-0">
+                Borradores y especificaciones publicadas de este tipo.
+            </p>
+        </div>
+        <div>
+            <a class="btn btn-primary"
+               href="{{ url_for('especificaciones.formulario', tipo=tipo) }}">
+                <i class="fas fa-plus mr-1"></i> Nuevo {{ tipo_info.nombre }}
+            </a>
+            <a class="btn btn-outline-secondary ml-1"
+               href="{{ url_for('especificaciones.buscar_tipo', tipo=tipo) }}">
+                <i class="fas fa-search mr-1"></i> Buscar
+            </a>
+        </div>
+    </div>
+
+    <!-- Tabs internos -->
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" data-toggle="tab" href="#tab-borradores" role="tab">
+                <i class="fas fa-edit mr-1"></i> Mis borradores
+                <span class="badge badge-secondary ml-1">{{ borradores|length }}</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-toggle="tab" href="#tab-publicadas" role="tab">
+                <i class="fas fa-download mr-1"></i> Publicadas
+                <span class="badge badge-secondary ml-1">{{ publicadas|length }}</span>
+            </a>
+        </li>
+        {% if compartidos %}
+        <li class="nav-item">
+            <a class="nav-link" data-toggle="tab" href="#tab-compartidos" role="tab">
+                <i class="fas fa-share-alt mr-1"></i> Compartidos
+                <span class="badge badge-secondary ml-1">{{ compartidos|length }}</span>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+
+    <div class="tab-content">
+
+        <!-- ═══ TAB: Borradores ═══ -->
+        <div class="tab-pane fade show active" id="tab-borradores" role="tabpanel">
+            {% if borradores %}
+            <div class="row">
+                {% for b in borradores %}
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card card-custom h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <div class="font-weight-bold" style="font-size:1.05rem;">
+                                        {{ b.codigo_completo }}
+                                    </div>
+                                    <span class="badge badge-warning">Rev {{ '%02d' % b.revision }}</span>
+                                </div>
+                                <span class="badge badge-info">Borrador</span>
+                            </div>
+                            {% if b.titulo %}
+                            <div class="text-truncate mb-1" title="{{ b.titulo }}">
+                                {{ b.titulo }}
+                            </div>
+                            {% endif %}
+                            {% if b.cliente %}
+                            <div class="small text-muted text-truncate">
+                                <i class="fas fa-user mr-1"></i>{{ b.cliente }}
+                            </div>
+                            {% endif %}
+                            <div class="small text-muted mt-2">
+                                <i class="fas fa-clock mr-1"></i>
+                                {{ b.fecha_actualizacion|format_date if b.fecha_actualizacion else '—' }}
+                            </div>
+                        </div>
+                        <div class="card-footer bg-white border-top-0">
+                            <a class="btn btn-sm btn-outline-primary"
+                               href="{{ url_for('especificaciones.formulario_borrador', id_b=b.id) }}">
+                                <i class="fas fa-edit mr-1"></i> Editar
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle mr-2"></i>
+                No tenés borradores de {{ tipo_info.nombre }}.
+                <a href="{{ url_for('especificaciones.formulario', tipo=tipo) }}"
+                   class="alert-link">Crear uno nuevo</a>.
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- ═══ TAB: Publicadas ═══ -->
+        <div class="tab-pane fade" id="tab-publicadas" role="tabpanel">
+            {% if publicadas %}
+            <div class="row">
+                {% for e in publicadas %}
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card card-custom h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <div class="font-weight-bold" style="font-size:1.05rem;">
+                                        {{ e.codigo_completo }}
+                                    </div>
+                                    <span class="badge badge-success">Rev {{ '%02d' % e.revision }}</span>
+                                </div>
+                                {% if e.es_ultima %}
+                                <span class="badge badge-primary">Última</span>
+                                {% endif %}
+                            </div>
+                            {% if e.titulo %}
+                            <div class="text-truncate mb-1">{{ e.titulo }}</div>
+                            {% endif %}
+                            <div class="small text-muted">
+                                <i class="fas fa-user mr-1"></i>{{ e.usuario_nombre }}
+                            </div>
+                            <div class="small text-muted">
+                                <i class="fas fa-calendar mr-1"></i>
+                                {{ e.fecha_generacion|format_date if e.fecha_generacion else '—' }}
+                            </div>
+                        </div>
+                        <div class="card-footer bg-white border-top-0">
+                            <a class="btn btn-sm btn-outline-primary"
+                               href="{{ url_for('especificaciones.ver', id_esp=e.id) }}">
+                                <i class="fas fa-eye mr-1"></i> Ver
+                            </a>
+                            <a class="btn btn-sm btn-outline-success"
+                               href="{{ url_for('especificaciones.descargar', id_esp=e.id) }}">
+                                <i class="fas fa-download mr-1"></i> PDF
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle mr-2"></i>
+                No hay especificaciones publicadas de {{ tipo_info.nombre }} todavía.
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- ═══ TAB: Compartidos ═══ -->
+        {% if compartidos %}
+        <div class="tab-pane fade" id="tab-compartidos" role="tabpanel">
+            <div class="row">
+                {% for c in compartidos %}
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card card-custom h-100 border-info">
+                        <div class="card-body">
+                            <div class="font-weight-bold mb-1">{{ c.codigo_completo }}</div>
+                            <span class="badge badge-warning">Rev {{ '%02d' % c.revision }}</span>
+                            <div class="small text-muted mt-2">
+                                <i class="fas fa-user-friends mr-1"></i>
+                                De: {{ c.dueno_nombre }}
+                            </div>
+                        </div>
+                        <div class="card-footer bg-white border-top-0">
+                            <a class="btn btn-sm btn-outline-info"
+                               href="{{ url_for('especificaciones.formulario_borrador', id_b=c.id) }}">
+                                <i class="fas fa-eye mr-1"></i> Abrir
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- Volver al panel general -->
+    <div class="mt-4">
+        <a href="{{ url_for('especificaciones.panel') }}" class="btn btn-link">
+            <i class="fas fa-arrow-left mr-1"></i> Volver al panel general
+        </a>
+    </div>
+
+</div>
+{% endblock %}

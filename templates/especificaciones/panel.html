@@ -1,0 +1,703 @@
+﻿{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h2 style="color: #2c3e50; margin: 0;">
+        <i class="fas fa-file-alt mr-2"></i>Especificaciones
+    </h2>
+    <button type="button" class="btn btn-info-custom" id="btn-compartir-banco">
+        <i class="fas fa-share-alt mr-1"></i>Compartir mi banco de borradores
+    </button>
+</div>
+
+{# Panel de tipos para crear nuevo #}
+<div class="row mb-4">
+    {% for key, info in tipos.items() %}
+    <div class="col-md-3 mb-2">
+        <a href="{{ url_for('especificaciones.buscar_tipo', tipo=key) }}"
+            class="btn btn-outline-{{ info.color }} btn-block text-left p-3">
+            <i class="{{ info.icono }} mr-2"></i>
+            <strong>Nueva {{ info.nombre }}</strong>
+        </a>
+    </div>
+    {% endfor %}
+</div>
+
+{# ═══════════════════════════════════════════════ #}
+{# BARRA DE BÚSQUEDA                              #}
+{# ═══════════════════════════════════════════════ #}
+<div class="card card-custom mb-3">
+    <div class="card-body py-2">
+        <div class="input-group">
+            <div class="input-group-prepend">
+                <span class="input-group-text bg-white border-right-0">
+                    <i class="fas fa-search text-muted"></i>
+                </span>
+            </div>
+            <input type="text" id="input-busqueda-panel"
+                   class="form-control input-custom border-left-0"
+                   placeholder="Buscar por código, tipo o usuario..."
+                   autocomplete="off">
+            <div class="input-group-append">
+                <button class="btn btn-outline-secondary" type="button"
+                        id="btn-limpiar-busqueda" style="display:none;"
+                        title="Limpiar búsqueda (Esc)">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    {# PUBLICADOS #}
+    <div class="col-md-4">
+        <div class="card card-custom mb-3">
+            <div class="card-header bg-primary-custom text-white">
+                <h5 class="mb-0"><i class="fas fa-check-circle mr-2"></i>Publicados</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if ultimas %}
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="thead-light">
+                        <tr><th>Código</th><th>Rev</th><th>Fecha</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        {% for e in ultimas %}
+                        <tr>
+                            <td>
+                                <strong>{{ e.codigo_completo }}</strong><br>
+                                <small class="text-muted">{{ tipos[e.tipo].nombre if e.tipo in tipos else e.tipo }}</small>
+                            </td>
+                            <td>
+                                {{ '%02d'|format(e.revision|int) }}
+                                {% if e.es_ultima %}<span class="badge badge-success ml-1" title="Última versión">activa</span>{% endif %}
+                            </td>
+                            <td class="small text-muted">{{ e.fecha_generacion[:10] }}</td>
+                            <td class="text-right">
+                                <a href="{{ url_for('especificaciones.ver', id_esp=e.id) }}"
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="p-4 text-center text-muted">
+                    <i class="fas fa-inbox fa-2x mb-2"></i><br>
+                    No hay publicados aún.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {# MIS BORRADORES #}
+    <div class="col-md-4">
+        <div class="card card-custom mb-3">
+            <div class="card-header bg-warning-custom text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-edit mr-2"></i>Mis borradores</h5>
+                <span class="badge badge-light">{{ borradores|length }} / {{ max_borradores }}</span>
+            </div>
+            <div class="card-body p-0">
+                {% if borradores %}
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="thead-light">
+                        <tr><th>Código</th><th>Rev</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        {% for b in borradores %}
+                        <tr>
+                            <td>
+                                <strong>{{ b.codigo_completo }}</strong><br>
+                                <small class="text-muted">
+                                    {{ tipos[b.tipo].nombre if b.tipo in tipos else b.tipo }}
+                                    — {{ b.fecha_actualizacion[:10] }}
+                                </small>
+                            </td>
+                            <td>
+                                {{ '%02d'|format(b.revision|int) }}
+                                {% if b.es_ultima %}<span class="badge badge-success ml-1" title="Última versión">activa</span>{% endif %}
+                            </td>
+                            <td class="text-right text-nowrap">
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-info btn-compartir-borrador"
+                                        data-id="{{ b.id }}"
+                                        data-nombre="{{ b.codigo_completo }} rev {{ '%02d'|format(b.revision|int) }}"
+                                        title="Compartir / override">
+                                    <i class="fas fa-share-alt"></i>
+                                </button>
+                                <a href="{{ url_for('especificaciones.formulario_borrador', id_b=b.id) }}"
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-pen"></i>
+                                </a>
+                                <form method="POST"
+                                      action="{{ url_for('especificaciones.eliminar_borrador', id_b=b.id) }}"
+                                      class="d-inline"
+                                      onsubmit="return confirm('¿Eliminar {{ b.codigo_completo }} rev {{ '%02d'|format(b.revision|int) }}?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="p-4 text-center text-muted">
+                    <i class="fas fa-file-signature fa-2x mb-2"></i><br>
+                    Sin borradores activos.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {# COMPARTIDOS CONMIGO #}
+    <div class="col-md-4">
+        <div class="card card-custom mb-3">
+            <div class="card-header bg-info-custom text-white">
+                <h5 class="mb-0"><i class="fas fa-users mr-2"></i>Compartidos conmigo</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if compartidos %}
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="thead-light">
+                        <tr><th>Código</th><th>De</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        {% for c in compartidos %}
+                        <tr>
+                            <td>
+                                <strong>{{ c.codigo_completo }}</strong>
+                                <span class="badge badge-secondary">rev {{ '%02d'|format(c.revision|int) }}</span><br>
+                                <small class="text-muted">
+                                    {{ tipos[c.tipo].nombre if c.tipo in tipos else c.tipo }}
+                                </small>
+                            </td>
+                            <td class="small">
+                                <i class="fas fa-user-circle mr-1"></i>{{ c.dueno_nombre }}
+                            </td>
+                            <td class="text-right">
+                                <a href="{{ url_for('especificaciones.formulario_borrador', id_b=c.id) }}"
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-pen"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="p-4 text-center text-muted">
+                    <i class="fas fa-user-friends fa-2x mb-2"></i><br>
+                    Nadie compartió borradores con vos.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════ #}
+{# RESULTADOS DEL HISTÓRICO (oculto por defecto) #}
+{# ═══════════════════════════════════════════════ #}
+<div class="row" id="row-historial" style="display:none;">
+    <div class="col-12">
+        <div class="card card-custom mb-3">
+            <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-history mr-2"></i>Resultados en el histórico</h5>
+                <span id="contador-historial" class="badge badge-light">0</span>
+            </div>
+            <div class="card-body p-0">
+                <div id="historial-container"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════ #}
+{# MODAL: Compartir banco global                  #}
+{# ═══════════════════════════════════════════════ #}
+<div class="modal fade" id="modal-compartir-banco" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-info-custom text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-share-alt mr-2"></i>Compartir mi banco de borradores
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small">
+                    Elegí qué usuarios pueden acceder a <strong>todos tus borradores</strong>.
+                    Después podés ajustar caso por caso desde el ícono <i class="fas fa-share-alt"></i>
+                    en cada borrador.
+                </p>
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-sm table-hover" id="tabla-usuarios-compartir">
+                        <thead class="thead-light">
+                            <tr>
+                                <th>Usuario</th>
+                                <th class="text-center">Ver / Editar</th>
+                                <th class="text-center">Publicar</th>
+                                <th class="text-center">Eliminar</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-usuarios-compartir">
+                            {# llenado por JS #}
+                        </tbody>
+                    </table>
+                </div>
+                <div id="compartir-feedback" class="form-text mt-2"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-info-custom" id="btn-guardar-compartir-banco">
+                    <i class="fas fa-save mr-1"></i>Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ═══════════════════════════════════════════════ #}
+{# MODAL: Compartir borrador específico           #}
+{# ═══════════════════════════════════════════════ #}
+<div class="modal fade" id="modal-compartir-borrador" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-info-custom text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-share-alt mr-2"></i>Compartir: <span id="compartir-borr-nombre"></span>
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small">
+                    Ajustá permisos específicos para este borrador. Los cambios acá
+                    <strong>sobreescriben</strong> los permisos globales.
+                </p>
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-sm table-hover">
+                        <thead class="thead-light">
+                            <tr>
+                                <th>Usuario</th>
+                                <th class="text-center">Ver / Editar</th>
+                                <th class="text-center">Publicar</th>
+                                <th class="text-center">Eliminar</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-usuarios-borrador">
+                            {# llenado por JS #}
+                        </tbody>
+                    </table>
+                </div>
+                <div id="compartir-borr-feedback" class="form-text mt-2"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-info-custom" id="btn-guardar-compartir-borrador">
+                    <i class="fas fa-save mr-1"></i>Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ═══════════════════════════════════════════════════════════════
+// BÚSQUEDA: filtro en vivo de las 3 columnas + histórico
+// ═══════════════════════════════════════════════════════════════
+(function () {
+    var input      = document.getElementById('input-busqueda-panel');
+    var btnLimpiar = document.getElementById('btn-limpiar-busqueda');
+    var rowHist    = document.getElementById('row-historial');
+    var contHist   = document.getElementById('historial-container');
+    var badgeHist  = document.getElementById('contador-historial');
+    if (!input || !rowHist || !contHist) return;
+
+    var TIPOS_INFO = {{ tipos | tojson }};
+    var BADGE_ORIGEN = {
+        'publicado':  { label: 'Publicado',  cls: 'badge-primary' },
+        'borrador':   { label: 'Borrador',   cls: 'badge-warning' },
+        'compartido': { label: 'Compartido', cls: 'badge-info'    }
+    };
+
+    var timer = null;
+    var ultimoQuery = '';
+    var seq = 0;
+
+    function escapar(s) {
+        return (s || '').toString()
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    // ─── Filtro en vivo de las 3 columnas ───
+    function filtrarColumnas(q) {
+        document.querySelectorAll('.card-custom table tbody').forEach(function (tbody) {
+            var reales = tbody.querySelectorAll('tr:not(.sin-resultados-filtro)');
+            if (!reales.length) return;
+
+            var visibles = 0;
+            reales.forEach(function (tr) {
+                var txt = (tr.textContent || '').toLowerCase();
+                var match = !q || txt.indexOf(q) !== -1;
+                tr.style.display = match ? '' : 'none';
+                if (match) visibles++;
+            });
+
+            var msg = tbody.querySelector('.sin-resultados-filtro');
+            if (q && visibles === 0) {
+                if (!msg) {
+                    msg = document.createElement('tr');
+                    msg.className = 'sin-resultados-filtro';
+                    msg.innerHTML =
+                        '<td colspan="10" class="text-center text-muted p-3 small">' +
+                        '<i class="fas fa-search mr-1"></i>Sin coincidencias' +
+                        '</td>';
+                    tbody.appendChild(msg);
+                }
+                msg.style.display = '';
+            } else if (msg) {
+                msg.style.display = 'none';
+            }
+        });
+    }
+
+    // ─── Render de la tabla histórica ───
+    function accionesHTML(it) {
+        if (it._origen === 'publicado') {
+            return (
+                '<a href="/especificaciones/ver/' + it.id + '" ' +
+                'class="btn btn-sm btn-info-custom" title="Ver PDF">' +
+                '<i class="fas fa-eye"></i></a> ' +
+                '<a href="/especificaciones/descargar/' + it.id + '" ' +
+                'class="btn btn-sm btn-success-custom" title="Descargar">' +
+                '<i class="fas fa-download"></i></a>'
+            );
+        }
+        return (
+            '<a href="/especificaciones/borrador/' + it.id + '" ' +
+            'class="btn btn-sm btn-outline-primary" title="Editar">' +
+            '<i class="fas fa-pen"></i></a>'
+        );
+    }
+
+    function renderHistorial(items) {
+        badgeHist.textContent = items.length;
+
+        if (!items.length) {
+            contHist.innerHTML =
+                '<div class="text-center text-muted p-4">' +
+                '<i class="fas fa-search fa-2x mb-2"></i><br>' +
+                'No se encontraron documentos en el histórico.' +
+                '</div>';
+            return;
+        }
+
+        var ORDEN = { publicado: 0, borrador: 1, compartido: 2 };
+        items.sort(function (a, b) {
+            var oa = ORDEN[a._origen] != null ? ORDEN[a._origen] : 9;
+            var ob = ORDEN[b._origen] != null ? ORDEN[b._origen] : 9;
+            if (oa !== ob) return oa - ob;
+            return (b.fecha_generacion || '').localeCompare(a.fecha_generacion || '');
+        });
+
+        var html =
+            '<div class="table-responsive"><table class="table table-hover mb-0">' +
+            '<thead class="thead-light"><tr>' +
+            '<th width="110">Sección</th>' +
+            '<th>Tipo</th>' +
+            '<th>Código</th>' +
+            '<th width="70">Rev</th>' +
+            '<th>Usuario</th>' +
+            '<th>Fecha</th>' +
+            '<th class="text-right">Acciones</th>' +
+            '</tr></thead><tbody>';
+
+        items.forEach(function (it) {
+            var ti = TIPOS_INFO[it.tipo] || {
+                nombre: it.tipo, icono: 'fas fa-file', color: 'secondary'
+            };
+            var bo = BADGE_ORIGEN[it._origen] || { label: it._origen, cls: 'badge-secondary' };
+            var rev = ('0' + (it.revision != null ? it.revision : 0)).slice(-2);
+
+            html +=
+                '<tr>' +
+                '<td><span class="badge ' + bo.cls + '">' + escapar(bo.label) + '</span></td>' +
+                '<td><span class="badge badge-' + ti.color + '">' +
+                '<i class="' + ti.icono + ' mr-1"></i>' + escapar(ti.nombre) +
+                '</span></td>' +
+                '<td><strong>' + escapar(it.codigo_completo) + '</strong></td>' +
+                '<td><span class="badge badge-secondary">' + rev + '</span></td>' +
+                '<td><small>' + escapar(it.usuario_nombre) + '</small></td>' +
+                '<td class="small text-muted">' + escapar(it.fecha_generacion || '') + '</td>' +
+                '<td class="text-right text-nowrap">' + accionesHTML(it) + '</td>' +
+                '</tr>';
+        });
+
+        html += '</tbody></table></div>';
+        contHist.innerHTML = html;
+    }
+
+    // ─── Búsqueda server-side del histórico ───
+    function buscarHistorial(q) {
+        var miSeq = ++seq;
+        contHist.innerHTML =
+            '<div class="text-center text-muted p-4">' +
+            '<i class="fas fa-spinner fa-spin"></i> Buscando en el histórico...' +
+            '</div>';
+        rowHist.style.display = '';
+
+        fetch('/especificaciones/buscar-global?q=' + encodeURIComponent(q))
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (miSeq !== seq) return;
+                if (data && data.success) {
+                    renderHistorial(data.resultados || []);
+                } else {
+                    contHist.innerHTML =
+                        '<div class="text-center text-danger p-4">Error en la búsqueda</div>';
+                }
+            })
+            .catch(function () {
+                if (miSeq !== seq) return;
+                contHist.innerHTML =
+                    '<div class="text-center text-danger p-4">Error de comunicación</div>';
+            });
+    }
+
+    // ─── Dispatcher ───
+    function aplicar() {
+        var q = (input.value || '').trim().toLowerCase();
+
+        btnLimpiar.style.display = q ? '' : 'none';
+
+        if (!q) {
+            ultimoQuery = '';
+            filtrarColumnas('');
+            rowHist.style.display = 'none';
+            contHist.innerHTML = '';
+            return;
+        }
+
+        filtrarColumnas(q);
+
+        if (q === ultimoQuery) return;
+        ultimoQuery = q;
+        buscarHistorial(q);
+    }
+
+    input.addEventListener('input', function () {
+        clearTimeout(timer);
+        timer = setTimeout(aplicar, 350);
+    });
+
+    btnLimpiar.addEventListener('click', function () {
+        input.value = '';
+        clearTimeout(timer);
+        aplicar();
+        input.focus();
+    });
+
+    input.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            input.value = '';
+            clearTimeout(timer);
+            aplicar();
+        }
+    });
+})();
+</script>
+
+<script>
+(function () {
+    // ═══════════════════════════════════════════════
+    // COMPARTIR BANCO GLOBAL
+    // ═══════════════════════════════════════════════
+    var btnBanco = document.getElementById('btn-compartir-banco');
+    var tbodyBanco = document.getElementById('tbody-usuarios-compartir');
+
+    function cargarModalBanco() {
+        tbodyBanco.innerHTML = '<tr><td colspan="4" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>';
+
+        Promise.all([
+            fetch('/especificaciones/api/usuarios-compartir').then(r => r.json()),
+            fetch('/especificaciones/api/permisos-globales').then(r => r.json())
+        ]).then(([usuariosRes, permisosRes]) => {
+            var usuarios = usuariosRes.usuarios || [];
+            var permisos = permisosRes.permisos || [];
+            var porUsuario = {};
+            permisos.forEach(p => { porUsuario[p.id_usuario] = p; });
+
+            if (!usuarios.length) {
+                tbodyBanco.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No hay usuarios disponibles.</td></tr>';
+                return;
+            }
+
+            var html = '';
+            usuarios.forEach(u => {
+                var p = porUsuario[u.id] || {};
+                var editar    = p.puede_editar    ? 'checked' : '';
+                var publicar  = p.puede_publicar  ? 'checked' : '';
+                var eliminar  = p.puede_eliminar  ? 'checked' : '';
+                var compartido = p.puede_editar !== undefined ? 'checked' : '';
+                html +=
+                    '<tr data-id-usuario="' + u.id + '">' +
+                    '<td><div class="custom-control custom-checkbox">' +
+                    '<input type="checkbox" class="custom-control-input chk-compartir" id="chk-cb-' + u.id + '" ' + compartido + '>' +
+                    '<label class="custom-control-label" for="chk-cb-' + u.id + '"><strong>' + u.nombre + '</strong></label>' +
+                    '</div></td>' +
+                    '<td class="text-center"><input type="checkbox" class="chk-editar" ' + editar + '></td>' +
+                    '<td class="text-center"><input type="checkbox" class="chk-publicar" ' + publicar + '></td>' +
+                    '<td class="text-center"><input type="checkbox" class="chk-eliminar" ' + eliminar + '></td>' +
+                    '</tr>';
+            });
+            tbodyBanco.innerHTML = html;
+        }).catch(() => {
+            tbodyBanco.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error cargando</td></tr>';
+        });
+    }
+
+    if (btnBanco) {
+        btnBanco.addEventListener('click', function () {
+            $('#modal-compartir-banco').modal('show');
+            cargarModalBanco();
+        });
+    }
+
+    var btnGuardarBanco = document.getElementById('btn-guardar-compartir-banco');
+    if (btnGuardarBanco) {
+        btnGuardarBanco.addEventListener('click', function () {
+            var permisos = [];
+            tbodyBanco.querySelectorAll('tr[data-id-usuario]').forEach(function (tr) {
+                var chk = tr.querySelector('.chk-compartir');
+                if (!chk || !chk.checked) return;
+                var id = parseInt(tr.getAttribute('data-id-usuario'));
+                permisos.push({
+                    id_usuario:     id,
+                    puede_editar:   tr.querySelector('.chk-editar').checked   ? 1 : 0,
+                    puede_publicar: tr.querySelector('.chk-publicar').checked ? 1 : 0,
+                    puede_eliminar: tr.querySelector('.chk-eliminar').checked ? 1 : 0,
+                });
+            });
+
+            fetch('/especificaciones/api/permisos-globales', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ permisos: permisos })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    $('#modal-compartir-banco').modal('hide');
+                    location.reload();
+                } else {
+                    document.getElementById('compartir-feedback').innerHTML =
+                        '<span class="text-danger">Error al guardar</span>';
+                }
+            })
+            .catch(() => {
+                document.getElementById('compartir-feedback').innerHTML =
+                    '<span class="text-danger">Error de comunicación</span>';
+            });
+        });
+    }
+
+    // ═══════════════════════════════════════════════
+    // COMPARTIR BORRADOR ESPECÍFICO
+    // ═══════════════════════════════════════════════
+    var idBorradorActual = null;
+    var tbodyBorr = document.getElementById('tbody-usuarios-borrador');
+
+    document.querySelectorAll('.btn-compartir-borrador').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            idBorradorActual = btn.getAttribute('data-id');
+            var nombre = btn.getAttribute('data-nombre');
+            document.getElementById('compartir-borr-nombre').textContent = nombre;
+            $('#modal-compartir-borrador').modal('show');
+
+            tbodyBorr.innerHTML = '<tr><td colspan="4" class="text-center"><i class="fas fa-spinner fa-spin"></i> Cargando...</td></tr>';
+
+            Promise.all([
+                fetch('/especificaciones/api/usuarios-compartir').then(r => r.json()),
+                fetch('/especificaciones/api/permisos-borrador/' + idBorradorActual).then(r => r.json())
+            ]).then(([usuariosRes, permisosRes]) => {
+                var usuarios = usuariosRes.usuarios || [];
+                var permisos = permisosRes.permisos || [];
+                var porUsuario = {};
+                permisos.forEach(p => { porUsuario[p.id_usuario] = p; });
+
+                var html = '';
+                usuarios.forEach(u => {
+                    var p = porUsuario[u.id] || {};
+                    var editar   = p.puede_editar   ? 'checked' : '';
+                    var publicar = p.puede_publicar ? 'checked' : '';
+                    var eliminar = p.puede_eliminar ? 'checked' : '';
+                    var activo = p.puede_editar !== undefined ? 'checked' : '';
+                    html +=
+                        '<tr data-id-usuario="' + u.id + '">' +
+                        '<td><div class="custom-control custom-checkbox">' +
+                        '<input type="checkbox" class="custom-control-input chk-compartir" id="chk-bb-' + u.id + '" ' + activo + '>' +
+                        '<label class="custom-control-label" for="chk-bb-' + u.id + '"><strong>' + u.nombre + '</strong></label>' +
+                        '</div></td>' +
+                        '<td class="text-center"><input type="checkbox" class="chk-editar" ' + editar + '></td>' +
+                        '<td class="text-center"><input type="checkbox" class="chk-publicar" ' + publicar + '></td>' +
+                        '<td class="text-center"><input type="checkbox" class="chk-eliminar" ' + eliminar + '></td>' +
+                        '</tr>';
+                });
+                tbodyBorr.innerHTML = html;
+            }).catch(() => {
+                tbodyBorr.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error cargando</td></tr>';
+            });
+        });
+    });
+
+    var btnGuardarBorr = document.getElementById('btn-guardar-compartir-borrador');
+    if (btnGuardarBorr) {
+        btnGuardarBorr.addEventListener('click', function () {
+            if (!idBorradorActual) return;
+            var permisos = [];
+            tbodyBorr.querySelectorAll('tr[data-id-usuario]').forEach(function (tr) {
+                var chk = tr.querySelector('.chk-compartir');
+                if (!chk || !chk.checked) return;
+                permisos.push({
+                    id_usuario:     parseInt(tr.getAttribute('data-id-usuario')),
+                    puede_editar:   tr.querySelector('.chk-editar').checked   ? 1 : 0,
+                    puede_publicar: tr.querySelector('.chk-publicar').checked ? 1 : 0,
+                    puede_eliminar: tr.querySelector('.chk-eliminar').checked ? 1 : 0,
+                });
+            });
+
+            fetch('/especificaciones/api/permisos-borrador/' + idBorradorActual, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ permisos: permisos })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    $('#modal-compartir-borrador').modal('hide');
+                    location.reload();
+                } else {
+                    document.getElementById('compartir-borr-feedback').innerHTML =
+                        '<span class="text-danger">Error al guardar</span>';
+                }
+            })
+            .catch(() => {
+                document.getElementById('compartir-borr-feedback').innerHTML =
+                    '<span class="text-danger">Error de comunicación</span>';
+            });
+        });
+    }
+})();
+</script>
+{% endblock %}
