@@ -20,7 +20,7 @@ def listar():
     
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT IdUsuario, NombreUsuario, Activo, FechaAlta
+        SELECT IdUsuario, NombreUsuario, Nombre, Apellido, Email, Activo, FechaAlta
         FROM EmpWebUsuarios
         ORDER BY IdUsuario
     """)
@@ -30,9 +30,12 @@ def listar():
     for row in rows:
         usuarios.append({
             'id': row[0],
-            'nombre': row[1],
-            'activo': row[2],
-            'fecha_alta': row[3].strftime('%d/%m/%Y %H:%M') if row[3] else ''
+            'nombre_usuario': row[1],  # Username para login
+            'nombre': row[2] or '',    # Nombre real
+            'apellido': row[3] or '',  # Apellido
+            'email': row[4] or '',     # Correo
+            'activo': row[5],
+            'fecha_alta': row[6].strftime('%d/%m/%Y %H:%M') if row[6] else ''
         })
     
     conn.close()
@@ -48,7 +51,7 @@ def detalle(id_usuario):
     cursor = conn.cursor()
     
     cursor.execute("""
-        SELECT IdUsuario, NombreUsuario, Activo, FechaAlta
+        SELECT IdUsuario, NombreUsuario, Nombre, Apellido, Email, Activo, FechaAlta
         FROM EmpWebUsuarios
         WHERE IdUsuario = ?
     """, (id_usuario,))
@@ -60,9 +63,12 @@ def detalle(id_usuario):
     
     usuario = {
         'id': user_row[0],
-        'nombre': user_row[1],
-        'activo': user_row[2],
-        'fecha_alta': user_row[3].strftime('%d/%m/%Y %H:%M') if user_row[3] else ''
+        'nombre_usuario': user_row[1],
+        'nombre': user_row[2] or '',
+        'apellido': user_row[3] or '',
+        'email': user_row[4] or '',
+        'activo': user_row[5],
+        'fecha_alta': user_row[6].strftime('%d/%m/%Y %H:%M') if user_row[6] else ''
     }
     
     # Menús asignados
@@ -112,12 +118,15 @@ def detalle(id_usuario):
 @menu_required('/usuarios')
 def crear():
     data = request.get_json()
-    nombre = data.get('nombre', '').strip()
+    nombre_usuario = data.get('nombre_usuario', '').strip()
     password = data.get('password', '')
+    nombre = data.get('nombre', '').strip()
+    apellido = data.get('apellido', '').strip()
+    email = data.get('email', '').strip()
     activo = data.get('activo', True)
     
-    if not nombre:
-        return jsonify({'success': False, 'error': 'El nombre de usuario es requerido'})
+    if not nombre_usuario:
+        return jsonify({'success': False, 'error': 'El nombre de usuario (login) es requerido'})
     
     if not password:
         return jsonify({'success': False, 'error': 'La contraseña es requerida'})
@@ -132,22 +141,21 @@ def crear():
     cursor = conn.cursor()
     
     try:
-        cursor.execute("SELECT COUNT(*) FROM EmpWebUsuarios WHERE NombreUsuario = ?", (nombre,))
+        cursor.execute("SELECT COUNT(*) FROM EmpWebUsuarios WHERE NombreUsuario = ?", (nombre_usuario,))
         if cursor.fetchone()[0] > 0:
             return jsonify({'success': False, 'error': 'El nombre de usuario ya existe'})
         
-        # Usar generate_password_hash de werkzeug
         password_hash = generate_password_hash(password)
         cursor.execute("""
-            INSERT INTO EmpWebUsuarios (NombreUsuario, PasswordHash, Activo, FechaAlta)
+            INSERT INTO EmpWebUsuarios (NombreUsuario, PasswordHash, Nombre, Apellido, Email, Activo, FechaAlta)
             OUTPUT INSERTED.IdUsuario
-            VALUES (?, ?, ?, GETDATE())
-        """, (nombre, password_hash, 1 if activo else 0))
+            VALUES (?, ?, ?, ?, ?, ?, GETDATE())
+        """, (nombre_usuario, password_hash, nombre, apellido, email, 1 if activo else 0))
         
         id_usuario = cursor.fetchone()[0]
         conn.commit()
         
-        return jsonify({'success': True, 'id': id_usuario, 'mensaje': f'Usuario {nombre} creado exitosamente'})
+        return jsonify({'success': True, 'id': id_usuario, 'mensaje': f'Usuario {nombre_usuario} creado exitosamente'})
     
     except Exception as e:
         conn.rollback()
@@ -159,11 +167,14 @@ def crear():
 @menu_required('/usuarios')
 def editar(id_usuario):
     data = request.get_json()
+    nombre_usuario = data.get('nombre_usuario', '').strip()
     nombre = data.get('nombre', '').strip()
+    apellido = data.get('apellido', '').strip()
+    email = data.get('email', '').strip()
     activo = data.get('activo', True)
     
-    if not nombre:
-        return jsonify({'success': False, 'error': 'El nombre de usuario es requerido'})
+    if not nombre_usuario:
+        return jsonify({'success': False, 'error': 'El nombre de usuario (login) es requerido'})
     
     conn = get_db_connection()
     if not conn:
@@ -172,15 +183,15 @@ def editar(id_usuario):
     cursor = conn.cursor()
     
     try:
-        cursor.execute("SELECT COUNT(*) FROM EmpWebUsuarios WHERE NombreUsuario = ? AND IdUsuario != ?", (nombre, id_usuario))
+        cursor.execute("SELECT COUNT(*) FROM EmpWebUsuarios WHERE NombreUsuario = ? AND IdUsuario != ?", (nombre_usuario, id_usuario))
         if cursor.fetchone()[0] > 0:
             return jsonify({'success': False, 'error': 'El nombre de usuario ya existe'})
         
         cursor.execute("""
             UPDATE EmpWebUsuarios
-            SET NombreUsuario = ?, Activo = ?
+            SET NombreUsuario = ?, Nombre = ?, Apellido = ?, Email = ?, Activo = ?
             WHERE IdUsuario = ?
-        """, (nombre, 1 if activo else 0, id_usuario))
+        """, (nombre_usuario, nombre, apellido, email, 1 if activo else 0, id_usuario))
         
         conn.commit()
         return jsonify({'success': True, 'mensaje': f'Usuario actualizado exitosamente'})
@@ -190,6 +201,8 @@ def editar(id_usuario):
         return jsonify({'success': False, 'error': str(e)})
     finally:
         conn.close()
+
+# ... (las rutas de cambiar-password, eliminar, asignar-menu y quitar-menu se mantienen exactamente igual) ...
 
 @usuarios_bp.route('/usuarios/cambiar-password/<int:id_usuario>', methods=['POST'])
 @menu_required('/usuarios')
@@ -210,7 +223,6 @@ def cambiar_password(id_usuario):
     cursor = conn.cursor()
     
     try:
-        # Usar generate_password_hash de werkzeug
         password_hash = generate_password_hash(password)
         cursor.execute("""
             UPDATE EmpWebUsuarios
